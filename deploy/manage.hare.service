@@ -1,0 +1,18 @@
+##
+# Hare management service
+##
+
+[Unit]
+Description=Hare managemente service
+After=syslog.target
+
+[Service]
+ExecStart=/usr/local/bin/uwsgi --ini /var/www/Hare/deploy/manage.ini
+Restart=always
+RestartSec=3
+KillSignal=SIGQUIT
+Type=notify
+NotifyAccess=all
+
+[Install]
+WantedBy=multi-user.target
