@@ -41,7 +41,7 @@ $ source venv/bin/activate
 $ ./engine.py --port <insert port here - default is 5000>
 ```
 
-Once Hare is running, open Chrome or Internet Explorer and try browsing to http://localhost:port/?query=cdp+l.
+Once Hare is running, open Chrome or Internet Explorer and try browsing to http://localhost:port/?query=wp+hare.
 
 ### Installing Hare In the Browser
 
