@@ -51,13 +51,13 @@ Once Hare is running, open Chrome or Internet Explorer and try browsing to http:
 2. Under __Default search engines__ on the right click __ADD__.
 3. In the __Search engine__ field enter "Hare"
 4. In the __Keyword__ field enter "hr"
-5. In the __URL with %s in place of query__ field enter "http://localhost:port/query=%s"
-    * If you want to set a fallback/default search engine, enter "http://localhost:port/fallback=ddg&query=%s"
+5. In the __URL with %s in place of query__ field enter "http://localhost:port?query=%s"
+    * If you want to set a fallback/default search engine, enter "http://localhost:port?fallback=ddg&query=%s"
 
 #### Firefox, Edge, IE
 
 Create a bookmark with the following as the URL:
 
 ```javascript
-javascript:hareurl='http://localhost:port/?query=';cmd=prompt('Hare%20Search');if(cmd){window.location=hareurl+escape(cmd);}else{void(0);}
+javascript:hareurl='http://localhost:port?query=';cmd=prompt('Hare%20Search');if(cmd){window.location=hareurl+escape(cmd);}else{void(0);}
 ```
