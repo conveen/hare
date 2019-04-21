@@ -61,12 +61,7 @@ class ManageRoute(BaseRoute):
         '''
         @BaseRoute._make_response
         '''
-        return make_response(\
-            render_template(\
-                'manage.html', 
-                engine_uri=current_ctx.app.config.get('HARE_ENGINE_HOST').rstrip('/')\
-            )\
-        )
+        return make_response(render_template('manage.html'))
 
 class NewRoute(BaseRoute):
     '''
@@ -82,7 +77,7 @@ class NewRoute(BaseRoute):
         '''
         try:
             res = requests.post(\
-                current_ctx.app.config.get('HARE_ENGINE_HOST').rstrip('/') + '/new',
+                '%s/new'%(current_ctx.app.config.get('HARE_ENGINE_HOST').rstrip('/')),
                 data = current_ctx.request.form.to_dict()\
             )
         except:

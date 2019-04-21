@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # -*- coding: UTF8 -*-
 # newdest.py
 #Copyright (c) 2018 conveen
@@ -29,7 +30,8 @@ from apps.common.manager import DBManager
 def newdest(args):
     dbm = DBManager(conn_string=args.conn_string, metadata=BaseTable.metadata, scoped=False)
     try:
-        dbm.initialize(None, bootstrap=True, create_session=True)
+        dbm.initialize(None, bootstrap=True)
+        dbm.create_session()
     except Exception as e:
         print('::: Failed to create connection to database:', str(e))
     else:

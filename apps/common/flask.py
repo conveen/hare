@@ -76,13 +76,13 @@ class RequestParser(ArgumentParser):
         '''
         super(RequestParser, self).add_argument('--%s'%urlparam, **kwargs)
         return self
-    def parse_args(self, ctx=None, namespace=None, drop_unknown=False):
+    def parse_args(self, ctx=None, namespace=None, drop_unknown=True):
         '''
         Args:
             ctx: flask.ctx.RequestContext   => the context from which to pull
                                                the request arguments
             namespace: Namespace            => existing Namespace object
-            drop_unknown: Boolean   => drop uknown args
+            drop_unknown: Boolean           => drop uknown args
         Returns:
             @ArgumentParser.parse_args
         Preconditions:
@@ -108,7 +108,7 @@ class RequestParser(ArgumentParser):
             split_args.append('--%s'%key)
             split_args.append(value)
         return self.parse_known_args(split_args, namespace, drop_unknown)
-    def parse_known_args(self, args=None, namespace=None, drop_unknown=False):
+    def parse_known_args(self, args=None, namespace=None, drop_unknown=True):
         '''
         Args:
             args: List<String>      => list of arguments to parse

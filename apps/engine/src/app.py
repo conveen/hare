@@ -20,7 +20,7 @@
 #OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #SOFTWARE.
 
-from os import getcwd, path
+from os import getcwd, path, environ
 from flask import Flask
 
 from apps.engine.src.routes import RouteRegistry
@@ -30,12 +30,18 @@ from apps.common.manager import DBManager
 
 def get_engine():
     app = Flask('__main__')
-    with open(path.join(path.abspath(path.dirname(__file__)), '.app_secret.key'), 'r', encoding='utf8') as scf:
+    config_object = environ.get('HARE_CONFIG_OBJECT')
+    if config_object is not None:
+        app.config.from_object(config_object)
+    else:
+        app.config.from_object('apps.engine.config.DefaultConfig')
+    with open(app.config.get('HARE_SECRET_KEY'), 'r', encoding='UTF8') as scf:
         app.secret_key = scf.read()
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + path.join(path.abspath(path.dirname(__file__)), 'hare.db')
-    app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True
-    manager = DBManager(metadata=BaseTable.metadata, scoped=True)
-    manager.initialize(app, bootstrap=True, create_session=True)
+    manager = DBManager(metadata=BaseTable.metadata)
+    manager.initialize(
+        app, 
+        bootstrap=app.config.get('HARE_DATABASE_BOOTSTRAP_ON_STARTUP')
+    )
     RouteRegistry.initialize(app)
     return app
 
@@ -43,7 +49,7 @@ def engine_main():
     app = get_engine()
     parser = initialize_parser()
     args = parser.parse_args()
-    if args.ssl:
+    if app.config.get('HARE_SSL_ENABLE') or args.ssl:
         app.run(host=args.host, port=args.port, debug=args.debug, ssl_context='adhoc')
     else:
         app.run(host=args.host, port=args.port, debug=args.debug)

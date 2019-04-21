@@ -30,17 +30,17 @@ class DBManager(object):
     '''
     Class for managing state of database connection
     '''
-    def __init__(self, conn_string=None, metadata=None, session_factory=None, session=None, scoped=False):
-        self._conn_string = conn_string
-        self._metadata = metadata
-        self._session_factory = session_factory
-        self._session = session
-        self._scoped_sessions = scoped
-        self._engine = None
-    def _flask_teardown_appcontext(self, err):
+    def __init__(self, conn_string=None, metadata=None, scoped=False):
+        self.conn_string = conn_string
+        self.metadata = metadata
+        self.scoped_sessions = scoped
+        self.engine = None
+        self.session_factory = None
+        self.session = None
+    def __flask_teardown_appcontext(self, err):
         '''
         '''
-        if current_app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN']:
+        if current_app.config.get('HARE_DATABASE_COMMIT_ON_TEARDOWN'):
             if err is None:
                 self.commit()
         self.session.remove()
@@ -50,7 +50,7 @@ class DBManager(object):
         '''
         @conn_string.getter
         '''
-        return self._conn_string
+        return self.__conn_string
     @conn_string.setter
     def conn_string(self, value):
         '''
@@ -58,14 +58,14 @@ class DBManager(object):
         Preconditions:
             conn_string is of type String
         '''
-        assert isinstance(value, str), 'Conn_string is not of type String'
-        self._conn_string = value
+        assert value is None or isinstance(value, str)
+        self.__conn_string = value
     @property
     def engine(self):
         '''
         @engine.getter
         '''
-        return self._engine
+        return self.__engine
     @engine.setter
     def engine(self, value):
         '''
@@ -73,8 +73,8 @@ class DBManager(object):
         Preconditions:
             value is of type Engine
         '''
-        assert isinstance(value, Engine)
-        self._engine = value
+        assert value is None or isinstance(value, Engine)
+        self.__engine = value
     def create_engine(self, conn_string=None, persist=True):
         '''
         Args:
@@ -88,8 +88,7 @@ class DBManager(object):
             conn_string is of type String
             persist is of type Boolean
         '''
-        assert isinstance(conn_string, (type(None), str)), 'Conn_string is not of type String'
-        assert isinstance(persist, bool), 'Persist is not of type Boolean'
+        assert isinstance(persist, bool)
         if conn_string is not None:
             self.conn_string = conn_string
         if self.conn_string is not None:
@@ -102,7 +101,7 @@ class DBManager(object):
         '''
         @metadata.getter
         '''
-        return self._metadata
+        return self.__metadata
     @metadata.setter
     def metadata(self, value):
         '''
@@ -111,13 +110,13 @@ class DBManager(object):
             value is of type MetaData
         '''
         assert value is None or isinstance(value, MetaData)
-        self._metadata = value
+        self.__metadata = value
     @property
     def session_factory(self):
         '''
         @session_factory.getter
         '''
-        return self._session_factory
+        return self.__session_factory
     @session_factory.setter
     def session_factory(self, value):
         '''
@@ -126,22 +125,35 @@ class DBManager(object):
             value is of type Callable
         '''
         assert value is None or callable(value)
-        self._session_factory = value
+        self.__session_factory = value
     @property
     def session(self):
         '''
         @_session.getter
         '''
-        if self._scoped_sessions:
+        if self.scoped_sessions:
             return self.session_factory
-        return self._session
+        return self.__session
     @session.setter
     def session(self, value):
         '''
         @_session.setter
         '''
-        assert isinstance(value, (type(None), Session))
-        self._session = value
+        assert value is None or isinstance(value, Session)
+        self.__session = value
+    @property
+    def scoped_sessions(self):
+        '''
+        Getter for scoped_sessions
+        '''
+        return self.__scoped_sessions
+    @scoped_sessions.setter
+    def scoped_sessions(self, value):
+        '''
+        Setter for scoped_sessions
+        '''
+        assert isinstance(value, bool)
+        self.__scoped_sessions = value
     def create_session(self, persist=True):
         '''
         Args:
@@ -155,7 +167,7 @@ class DBManager(object):
             persist is of type Boolean
         '''
         assert isinstance(persist, bool), 'Persist is not of type Boolean'
-        if self._scoped_sessions:
+        if self.scoped_sessions:
             return self.session_factory
         if persist:
             if self.session is None:
@@ -175,7 +187,7 @@ class DBManager(object):
         assert session is None or isinstance(session, Session)
         if session is not None:
             session.close()
-        elif self._scoped_sessions and self.session_factory is not None:
+        elif self.scoped_sessions and self.session_factory is not None:
             self.session_factory.remove()
         elif self.session is not None:
             self.session.close()
@@ -190,60 +202,37 @@ class DBManager(object):
         Preconditions:
             engine is of type Engine
         '''
-        assert engine is None or isinstance(engine, Engine)
         if engine is not None:
             self.engine = engine
         if self.engine is not None and self.metadata is not None:
             self.metadata.create_all(self.engine)
-    def initialize(self, app, conn_string=None, metadata=None, bootstrap=False, scoped=False, create_session=False):
+    def initialize(self, app, bootstrap=False):
         '''
         Args:
             app: Flask              => flask app using this DB manager
-            conn_string: String     => database connection string
-            metadata: MetaData      => database metadata object
             bootstrap: Boolean      => whether to bootstrap database with table, index, and view information
-            scoped: Boolean         => whether to use scoped session objects (see: http://docs.sqlalchemy.org/en/latest/orm/contextual.html)
-            create_session: Boolean => whether to create a persisted session on initialization
         Procedure:
-            initialize a database connection using conn_string and perform various 
-            setup tasks if asked to
+            Initialize a database connection using database connection string 
+            from Flask app config and perform setup tasks if necessary
         Preconditions:
             app is of type Flask
-            conn_string is of type String
-            metadata is of type MetaData
             bootstrap is of type Boolean
-            scoped is of type Boolean
-            create_session is of type Boolean
         '''
-        assert isinstance(app, (Flask, type(None))), 'App is not of type Flask'
-        assert isinstance(conn_string, (type(None), str)), 'Conn_string is not of type String'
-        assert (metadata is None and self.metadata is not None) or isinstance(metadata, MetaData), 'Metadata is not of type MetaData'
-        assert isinstance(bootstrap, bool), 'Bootstrap is not of type boolean'
-        assert isinstance(scoped, bool), 'Scoped is not of type boolean'
-        assert isinstance(create_session, bool), 'Create_session is not of type boolean'
+        assert app is None or isinstance(app, Flask)
+        assert isinstance(bootstrap, bool)
         if app is not None:
-            app.config.setdefault('SQLALCHEMY_DATABASE_URI', 'sqlite:///hare.db')
-            app.config.setdefault('SQLALCHEMY_COMMIT_ON_TEARDOWN', False)
-            app.teardown_appcontext_funcs.append(self._flask_teardown_appcontext)
-            conn_string = conn_string if conn_string is not None else app.config['SQLALCHEMY_DATABASE_URI']
+            app.teardown_appcontext_funcs.append(self.__flask_teardown_appcontext)
             app.dbm = self
+            self.conn_string = app.config.get('HARE_DATABASE_URI')
+            self.scoped_sessions = True
         try:
-            if conn_string is not None:
-                self.conn_string = conn_string
             self.create_engine()
-            if metadata is not None:
-                self.metadata = metadata
             if self.engine is not None:
                 if bootstrap:
                     self.bootstrap()
-                if scoped or self._scoped_sessions:
-                    self.session_factory = scoped_session(sessionmaker(bind=self.engine, autoflush=False))
-                    self._scoped_sessions = True
-                else:
-                    self.session_factory = sessionmaker(bind=self.engine, autoflush=False)
-                    self._scoped_sessions = False
-                if create_session and not self._scoped_sessions:
-                    self.create_session()
+                self.session_factory = sessionmaker(bind=self.engine, autoflush=False)
+                if self.scoped_sessions:
+                    self.session_factory = scoped_session(self.session_factory)
         except Exception as e:
             raise Exception('Failed to initialize DBManager (%s)'%str(e))
     def query(self, model, **kwargs):

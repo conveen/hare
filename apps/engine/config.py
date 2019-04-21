@@ -1,5 +1,5 @@
 # -*- coding: UTF8 -*-
-# cli.py
+# config.py
 #Copyright (c) 2018 conveen
 #
 #Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -20,34 +20,15 @@
 #OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #SOFTWARE.
 
-from argparse import ArgumentParser
+from os import path
 
-def initialize_parser(prog, description):
-    parser = ArgumentParser(prog=prog, description=description)
-    parser.add_argument(
-        '--host',
-        type=str,
-        default='127.0.0.1',
-        help='IP address or hostname to listen on',
-        dest='host'
+class DefaultConfig(object):
+    HARE_DATABASE_URI                   = 'sqlite:///%s'%(
+        path.join(path.abspath(path.dirname(__file__)), 'src', 'hare.db')
     )
-    parser.add_argument(
-        '--port',
-        type=int,
-        default=80,
-        help='Port to listen on',
-        dest='port'
+    HARE_DATABASE_COMMIT_ON_TEARDOWN    = True
+    HARE_DATABASE_BOOTSTRAP_ON_STARTUP  = True
+    HARE_SECRET_KEY                     = path.join(
+        path.abspath(path.dirname(__file__)), 'src', '.app_secret.key'
     )
-    parser.add_argument(
-        '--debug',
-        action='store_true',
-        help='Whether to run server in debug mode (default: False)',
-        dest='debug'
-    )
-    parser.add_argument(
-        '--ssl',
-        action='store_true',
-        help='Whether to run server in https mode (default: False)',
-        dest='ssl'
-    )
-    return parser
+    HARE_SSL_ENABLE                     = False

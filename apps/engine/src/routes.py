@@ -135,6 +135,7 @@ class NewDestinationRoute(BaseRoute):
             return JSONResponse({\
                 'err':'Invalid or insufficient request parameters'\
             }, status_code=412).compile()
+        print(args)
         priority = None
         if args.is_fallback:
             last_fallback = current_ctx.app.dbm\

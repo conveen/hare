@@ -20,20 +20,21 @@
 #OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #SOFTWARE.
 
-from os import getcwd, path
+from os import getcwd, path, environ
 from flask import Flask
 
 from apps.manage.src.routes import RouteRegistry
 from apps.manage.src.cli import initialize_parser
 
-def get_manage(prod=False):
+def get_manage():
     app = Flask('__main__')
-    with open(path.join(path.abspath(path.dirname(__file__)), '.app_secret.key'), 'r', encoding='utf8') as scf:
-        app.secret_key = scf.read()
-    if prod:
-        app.config['HARE_ENGINE_HOST'] = 'http://0000:8000'
+    config_object = environ.get('HARE_CONFIG_OBJECT')
+    if config_object is not None:
+        app.config.from_object(config_object)
     else:
-        app.config['HARE_ENGINE_HOST'] = 'http://localhost:8000'
+        app.config.from_object('apps.manage.config.DefaultConfig')
+    with open(app.config.get('HARE_SECRET_KEY'), 'r', encoding='UTF8') as scf:
+        app.secret_key = scf.read()
     RouteRegistry.initialize(app)
     return app
 
@@ -41,8 +42,7 @@ def manage_main():
     app = get_manage()
     parser = initialize_parser()
     args = parser.parse_args()
-    if args.ssl:
+    if app.config.get('HARE_SSL_ENABLE') or args.ssl:
         app.run(host=args.host, port=args.port, debug=args.debug, ssl_context='adhoc')
     else:
         app.run(host=args.host, port=args.port, debug=args.debug)
-

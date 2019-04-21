@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # -*- coding: UTF8 -*-
 # bootstrap.py
 #Copyright (c) 2018 conveen
@@ -32,7 +33,7 @@ def get_destinations():
 
 def bootstrap(args):
     destinations = list()
-    destinations.append("./newdest.py --connect '%s' --url 'https://google.com/?q=%%s' --fallback --alias google --alias ggl --alias g"%(args.conn_string))
+    destinations.append("./newdest.py --connect '%s' --url 'https://google.com/search?q=%%s' --fallback --alias google --alias ggl --alias g"%(args.conn_string))
     destinations.append("./newdest.py --connect '%s' --url 'https://duckduckgo.com/?q=%%s' --fallback --alias duckduckgo --alias ddg --alias d"%(args.conn_string))
     destinations.append("./newdest.py --connect '%s' --url 'https://en.wikipedia.org/w/index.php?search=%%s' --alias wp --alias wikipedia -A page -d 'Main_Page' --fallback"%(args.conn_string))
     destinations.append("./newdest.py --connect '%s' --url 'https://github.com' --alias gh --alias ghub --alias github"%(args.conn_string))
