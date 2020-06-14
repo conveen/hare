@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 ## -*- coding: UTF8 -*-
 ## manage.py
+##
 ## Copyright (c) 2020 conveen
 ##
 ## Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -22,8 +23,9 @@
 ## SOFTWARE.
 
 import sys
-from apps.manage.src.app import manage_main
+
+from src.app import manage_main
+
 
 if __name__ == '__main__':
-    manage_main()
-    sys.exit(0)
+    return manage_main()
