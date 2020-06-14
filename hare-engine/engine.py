@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 ## -*- coding: UTF8 -*-
 ## engine.py
+##
 ## Copyright (c) 2020 conveen
 ##
 ## Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -22,8 +23,8 @@
 ## SOFTWARE.
 
 import sys
-from apps.engine.src.app import engine_main
+from src.app import engine_main
+
 
 if __name__ == '__main__':
-    engine_main()
-    sys.exit(0)
+    return engine_main()
