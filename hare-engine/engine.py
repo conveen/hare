@@ -26,5 +26,8 @@ import sys
 from src.app import engine_main
 
 
+__author__ = "conveen"
+
+
 if __name__ == '__main__':
     return engine_main()
