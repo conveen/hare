@@ -1,22 +1,28 @@
-# Ignore .DS_Store files for Apple devices
+# .DS_Store files for Apple devices
 *.DS_Store
 
-# Ignore Python compiled files
-*.pyc
-*__pycache__*
+# Python compiled files
+*__pycache__
 
-# Ignore any test directories or log files
-*test*
+# Mypy cache
+*.mypy_cache
+
+# Ignore log files
 *.log
 
 # Ignore database files
 *.db
 
-# Ignore Vim temp files
+# Vim swap files
 *.swp
+*.swo
 
-# Ignore virtual environment
-venv*
+# Python virtual environment
+*venv
 
-# Ignore secret keys
+# Secret keys
 *.key
+
+# Coverage files
+.coverage
+htmlcov
