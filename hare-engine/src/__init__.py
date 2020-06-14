@@ -1,5 +1,6 @@
 ## -*- coding: UTF8 -*-
 ## __init__.py
+##
 ## Copyright (c) 2020 conveen
 ##
 ## Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -20,3 +21,5 @@
 ## OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ## SOFTWARE.
 
+
+__author__ = "conveen"
