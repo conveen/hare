@@ -26,19 +26,20 @@ from pathlib import Path
 __author__ = "conveen"
 
 
-class DefaultConfig:
-    """Default configuration object.
-    See: https://flask.palletsprojects.com/en/1.1.x/api/#flask.Config.from_object
-    """
+# Default database connection URL is SQLite database in local directory
+HARE_DATABASE_URI = "sqlite:///{}".format(Path(__file__)
+                                          .parent
+                                          .joinpath("hare.db")
+                                          .absolute())
 
-    # Default database connection URL is SQLite database in local directory
-    HARE_DATABASE_URI = "sqlite:///{}".format(Path(__file__).joinpath("hare.db").absolute())
+# Attempt to create all tables in database on application startup
+HARE_DATABASE_BOOTSTRAP_ON_STARTUP = True
 
-    # Attempt to create all tables in database on application startup
-    HARE_DATABASE_BOOTSTRAP_ON_STARTUP = True
-
-    # Default application secret key path is ".app_secret.key" in local directory
-    # NOTE: This file should _never_ be checked in to source control, and should be
-    #       fetched from secret manager or encrypted file in production environments
-    # See: https://flask.palletsprojects.com/en/1.1.x/quickstart/#sessions
-    HARE_SECRET_KEY = str(Path(__file__).joinpath(".app_secret.key").absolute())
+# Default application secret key path is ".app_secret.key" in local directory
+# NOTE: This file should _never_ be checked in to source control, and should be
+#       fetched from secret manager or encrypted file in production environments
+# See: https://flask.palletsprojects.com/en/1.1.x/quickstart/#sessions
+HARE_SECRET_KEY = str(Path(__file__)
+                      .parent
+                      .joinpath(".app_secret.key")
+                      .absolute())
