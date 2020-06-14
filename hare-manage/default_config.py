@@ -1,5 +1,6 @@
 ## -*- coding: UTF8 -*-
 ## config.py
+##
 ## Copyright (c) 2020 conveen
 ##
 ## Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -20,11 +21,20 @@
 ## OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ## SOFTWARE.
 
-from os import path
+from pathlib import Path
 
-class DefaultConfig(object):
-    HARE_ENGINE_HOST                    = 'http://0.0.0.0:80'
-    HARE_SECRET_KEY                     = path.join(
-        path.abspath(path.dirname(__file__)), 'src', '.app_secret.key'
-    )
-    HARE_SSL_ENABLE                     = False
+
+__author__ = "conveen"
+
+
+# Default Hare Engine IP address and port is localhost port 80
+HARE_ENGINE_HOST = "http://127.0.0.1:80"
+
+# Default application secret key path is ".app_secret.key" in local directory
+# NOTE: This file should _never_ be checked in to source control, and should be
+#       fetched from secret manager or encrypted file in production environments
+# See: https://flask.palletsprojects.com/en/1.1.x/quickstart/#sessions
+HARE_SECRET_KEY = str(Path(__file__)
+                      .parent
+                      .joinpath(".app_secret.key")
+                      .absolute())
