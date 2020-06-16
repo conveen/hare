@@ -49,6 +49,7 @@ setuptools.setup(
     install_requires=[
         "Flask>=1.1",
         "lc-flask-routes[all]",
+        "lc-sqlalchemy-dbutils",
     ],
     classifiers=[
         "Intended Audience :: Developers",
