@@ -20,69 +20,94 @@
 ## OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ## SOFTWARE.
 
-from sqlalchemy.orm import relationship
-from sqlalchemy import Column, ForeignKey
-from sqlalchemy.schema import UniqueConstraint, CheckConstraint, DDL
-from sqlalchemy.types import BigInteger, Integer, Boolean, String, Text, TIMESTAMP
-from sqlalchemy.event import listen
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
+from sqlalchemy.orm import relationship
+from sqlalchemy.schema import CheckConstraint, Column, ForeignKey, UniqueConstraint
+from sqlalchemy.types import Boolean, Integer, UnicodeText, TIMESTAMP
+from lc_sqlalchemy_dbutils.schema import TimestampDefaultExpression
 
-from apps.common.database import BaseTableTemplate, TimestampDefaultExpression
 
-BaseTable = declarative_base(cls=BaseTableTemplate)
+__author__ = "conveen"
 
-class DestinationMixin(object):
+
+class BaseTableMixin:
+    """Mixin class containing base columns that should be present
+    on every table:
+        1) id: primary key
+        2) created_at: timestamp of record creation in database
+    Also sets table name as lowercase of each class name.
+    """
+    __slots__ = ()
+
     @declared_attr
-    def dest_id(cls):
-        return Column(\
-            BigInteger().with_variant(Integer, 'sqlite'), 
-            ForeignKey('destination.id', ondelete='CASCADE', onupdate='CASCADE'), 
-            nullable=False, 
-            index=True\
-        )
+    def __tablename__(cls):
+        return cls.__name__.lower()
+
+    id = Column(Integer, primary_key=True, nullable=False)
+    created_at = Column(TIMESTAMP(timezone=True), server_default=TimestampDefaultExpression())
+
+    def __repr__(self):
+        # Get class name (not table name)
+        cls_name = type(self).__name__
+        # Get columns for table
+        columns = [(column.name, getattr(self, column.name)) for column in self.__table__.columns]
+        # "<class_name>(<column_1>=<value1>, <column_2>=<value2>, ..., <column_N>=<valueN>)"
+        return "{}({})".format(cls_name,
+                               ", ".join("{}={}".format(column,value) for column, value in columns))
+
+
+BaseTable = declarative_base(cls=BaseTableMixin)
+
 
 class Destination(BaseTable):
-    url         = Column(String().with_variant(Text, 'postgresql'), nullable=False, unique=True, index=True)
+    """destination table
+
+    A destination represents a unique _URL_ and set of zero or more parameters.
+    For example, a destination could be https://www.youtube.com/results?search_query={},
+    where '{}' is a single parameter. Destinations could also have no
+    parameters, like https://time.is/, or have parameters as part of the URL (not a URL parameter).
+
+    Fallback destinations are URLs with a single parameter, and are used if the specified
+    destination does not exist, or there is otherwise an error in redirecting an a destination.
+    Common choices could be DuckDuckGo, Wikipedia, or Google.
+    """
+    url = Column(UnicodeText, nullable=False, index=True)
+    num_args = Column(Integer, nullable=False)
     is_fallback = Column(Boolean, nullable=False, index=True)
-    priority    = Column(Integer, index=True)
-    aliases     = relationship('Alias', backref='destination')
-    args        = relationship('Argument', backref='destination')
+    fallback_priority = Column(Integer, index=True)
 
-    def __repr__(self):
-        return 'Destination(id=%s, url=%s, is_fallback=%s, priority=%s)'%(\
-            self._notnone(self.id),
-            self._notnone(self.url),
-            self._notnone(self.is_fallback),
-            self._notnone(self.priority)\
-        )
 
-class Alias(DestinationMixin, BaseTable):
-    name        = Column(String().with_variant(Text, 'postgresql'), nullable=False, index=True)
+class DestinationForeignKeyMixin:
+    """Mixin class for tables that have a Foreign Key relationship
+    with the destination table. The ondelete and onupdate behavior
+    is set to CASCADE so that any changes made through the SQLAlchemy ORM
+    to the destination table will be propogated to any table with a relation to it.
+    Note that ondelete and onupdate are SQLAlchemy constructs, and do not change
+    database (non-ORM) behavior.
+    """
+    __slots__ = ()
+
+    @declared_attr
+    def dest_id(cls):
+        return Column(Integer,
+                      ForeignKey("destination.id", onupdate="CASCADE", ondelete="CASCADE"),
+                      nullable=False,
+                      index=True)
+
+
+class Alias(DestinationForeignKeyMixin, BaseTable):
+    """alias table
+
+    Aliases act as references, or pointers, to destinations, and are the shortcuts users type to 
+    get redirected to a destination. For example, the shortcuts "ddg", "duckduckgo", and "go" could
+    all reference a search on DuckDuckGo.
+
+    There is a one-to-many relationship between destination and alias, and a one-to-one relationship
+    between alias and destination. In other words, a destination can have many aliases, but an alias
+    must uniquely point to a single destination (enforced by a unique constraint on dest_id and name).
+    """
     __table_args__ = (
-        UniqueConstraint('dest_id', 'name'),
+        UniqueConstraint("dest_id", "name"),
     )
 
-    def __repr__(self):
-        return 'Alias(id=%s, dest_id=%s, name=%s)'%(\
-            self._notnone(self.id),
-            self._notnone(self.dest_id),
-            self._notnone(self.name)\
-        )
-
-class Argument(DestinationMixin, BaseTable):
-    name        = Column(String().with_variant(Text, 'postgresql'), nullable=False, index=True)
-    type        = Column(String().with_variant(Text, 'postgresql'), nullable=False, index=True)
-    default     = Column(String().with_variant(Text, 'postgresql'))
-    __table_args__ = (\
-        UniqueConstraint('dest_id', 'name'),
-        CheckConstraint("type IN ('string', 'nargs')")
-    )
-
-    def __repr__(self):
-        return 'Argument(id=%s, dest_id=%s, name=%s, type=%s, default=%s)'%(\
-            self._notnone(self.id),
-            self._notnone(self.dest_id),
-            self._notnone(self.name),
-            self._notnone(self.type),
-            self._notnone(self.default)\
-        )
+    name = Column(UnicodeText, nullable=False, index=True)
