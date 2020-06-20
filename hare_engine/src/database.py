@@ -74,7 +74,7 @@ class Destination(BaseTable):
     url = Column(UnicodeText, nullable=False, index=True)
     num_args = Column(Integer, nullable=False)
     is_fallback = Column(Boolean, nullable=False, index=True)
-    fallback_priority = Column(Integer, index=True)
+    is_default_fallback = Column(Boolean, nullable=False, server_default=text("false"))
 
 
 class DestinationForeignKeyMixin:
