@@ -20,8 +20,9 @@
 ## OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ## SOFTWARE.
 
+from string import Formatter
 from typing import List
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlsplit, urlunsplit
 
 from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
@@ -34,6 +35,9 @@ from lc_sqlalchemy_dbutils.schema import TimestampDefaultExpression
 
 
 __author__ = "conveen"
+
+
+##### Database Schema Definition #####
 
 
 class BaseTableMixin:
@@ -81,6 +85,7 @@ class Destination(BaseTable):
     num_args = Column(Integer, nullable=False)
     is_fallback = Column(Boolean, nullable=False, index=True)
     is_default_fallback = Column(Boolean, nullable=False, server_default=text("false"))
+    description = Column(UnicodeText, nullable=False)
     aliases = relationship("Alias", backref="destination")
 
 
@@ -120,9 +125,66 @@ class Alias(DestinationForeignKeyMixin, BaseTable):
     name = Column(UnicodeText, nullable=False, index=True)
 
 
+##### Database Routines (and helpers) #####
+
+
+def _validate_netloc_url(url: str) -> str:
+    """
+    Args:
+        url     => URL to validate
+    Description:
+        Helper for add_destination_with_aliases.
+        Validate that URL is valid netloc URL according to RFC 1808.
+        If no scheme is provided, defaults to http (like most browsers).
+    Preconditions:
+        N/A
+    Raises:
+        ValueError: if URL is invalid, or
+                    if URL doesn't point to network location
+    """
+    # Ensure URL is valid netloc url according to RFC 1808
+    # See: https://tools.ietf.org/html/rfc1808.html
+    try:
+        scheme, netloc, path, query, fragment = urlsplit(url)
+    except ValueError as exc:
+        raise ValueError("invalid URL ({})".format(exc))
+    # URL must point to network location (website)
+    if not netloc:
+        raise ValueError("URL must point to website")
+    # If no scheme is provided, will default to http (as most browsers do)
+    if not scheme:
+        scheme = "http"
+        url = urlunsplit((scheme, netloc, path, query, fragment,))     # pylint: disable=E1121
+    return url
+
+
+def _gen_num_args_from_url(url: str) -> int:
+    """
+    Args:
+        url     => URL to parse
+    Description:
+        Helper for add_destination_with_aliases.
+        Parses number of positional arguments in `url`.
+    Preconditions:
+        N/A
+    Raises:
+        N/A
+    """
+    # NOTE: Consider validation that all fields are positional (do not have field_name)
+    format_args = Formatter().parse(url)
+    # If only one entry and field_name is None, then doesn't have any format args
+    # Each entry in format_args is 4-tuple with (iteral_text, field_name, format_spec, conversion)
+    # See: https://docs.python.org/3.8/library/string.html#string.Formatter.parse
+    if len(format_args) == 1 and format_args[0][1] is None:
+        num_args = 0
+    else:
+        num_args = len(format_args)
+    return num_args
+
+
 def add_destination_with_aliases(dbm: DBManager,
                                  url: str,
-                                 num_args: int,
+                                 description: str,
                                  aliases: List[str],
                                  is_fallback: bool = False,
                                  is_default_fallback: bool = False):
@@ -139,13 +201,17 @@ def add_destination_with_aliases(dbm: DBManager,
         ValueError: if arguments don't pass validation
         Consult database driver and DBManager class for other possible errors
     """
-    # Ensure num_args >= 0
-    if num_args < 0:
-        raise ValueError("num_args must be non-negative")
     # Ensure number of aliases >= 1
     # NOTE: Checked here due to lack of runtime type-checking
     if not aliases:
         raise ValueError("must provide at least one alias")
+
+    # Validate URL
+    url = _validate_netloc_url(url)
+
+    # Parse num_args from url
+    num_args = _gen_num_args_from_url(url)
+
     # Ensure num_args is 1 if is fallback destination
     if is_fallback:
         if num_args > 1:
@@ -172,9 +238,10 @@ def add_destination_with_aliases(dbm: DBManager,
 
     # Add destination and alias records to session
     destination = Destination(url=url,
-                                 num_args=num_args,
-                                 is_fallback=is_fallback,
-                                 is_default_fallback=is_default_fallback)
+                              num_args=num_args,
+                              is_fallback=is_fallback,
+                              is_default_fallback=is_default_fallback,
+                              description=description)
     dbm.add(destination)
     for alias in aliases:
         dbm.add(Alias(name=quote_plus(alias), destination=destination))
