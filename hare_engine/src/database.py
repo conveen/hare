@@ -20,13 +20,14 @@
 ## OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ## SOFTWARE.
 
-from typing import List, Optional, Tuple
+from typing import List
 from urllib.parse import quote_plus
 
 from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy.orm import relationship
-from sqlalchemy.schema import CheckConstraint, Column, ForeignKey, UniqueConstraint
+from sqlalchemy.schema import Column, ForeignKey, UniqueConstraint
+from sqlalchemy.sql.expression import text
 from sqlalchemy.types import Boolean, Integer, UnicodeText, TIMESTAMP
 from lc_sqlalchemy_dbutils.manager import DBManager
 from lc_sqlalchemy_dbutils.schema import TimestampDefaultExpression
@@ -45,7 +46,7 @@ class BaseTableMixin:
     __slots__ = ()
 
     @declared_attr
-    def __tablename__(cls):
+    def __tablename__(cls):     # pylint: disable=E0213
         return cls.__name__.lower()
 
     id = Column(Integer, primary_key=True, nullable=False)
@@ -58,7 +59,7 @@ class BaseTableMixin:
         columns = [(column.name, getattr(self, column.name)) for column in self.__table__.columns]
         # "<class_name>(<column_1>=<value1>, <column_2>=<value2>, ..., <column_N>=<valueN>)"
         return "{}({})".format(cls_name,
-                               ", ".join("{}={}".format(column,value) for column, value in columns))
+                               ", ".join("{}={}".format(column, value) for column, value in columns))
 
 
 BaseTable = declarative_base(cls=BaseTableMixin)
@@ -94,7 +95,7 @@ class DestinationForeignKeyMixin:
     __slots__ = ()
 
     @declared_attr
-    def dest_id(cls):
+    def dest_id(cls):   # pylint: disable=E0213
         return Column(Integer,
                       ForeignKey("destination.id", onupdate="CASCADE", ondelete="CASCADE"),
                       nullable=False,
@@ -104,7 +105,7 @@ class DestinationForeignKeyMixin:
 class Alias(DestinationForeignKeyMixin, BaseTable):
     """alias table
 
-    Aliases act as references, or pointers, to destinations, and are the shortcuts users type to 
+    Aliases act as references, or pointers, to destinations, and are the shortcuts users type to
     get redirected to a destination. For example, the shortcuts "ddg", "duckduckgo", and "go" could
     all reference a search on DuckDuckGo.
 
@@ -164,19 +165,19 @@ def add_destination_with_aliases(dbm: DBManager,
     # Cannot have two default fallbacks, so must atomically add new
     # destination as default and remove flag from existing.
     if is_default_fallback:
-        existing_defaults = dbm.query(db.Destination, is_default_fallback=True).all()
+        existing_defaults = dbm.query(Destination, is_default_fallback=True).all()
         if existing_defaults:
             for destination in existing_defaults:
                 destination.is_default_fallback = False
 
     # Add destination and alias records to session
-    destination = db.Destination(url=url,
+    destination = Destination(url=url,
                                  num_args=num_args,
                                  is_fallback=is_fallback,
-                                 is_default_fallback=is_default_fallback))
-    db.add(destination)
+                                 is_default_fallback=is_default_fallback)
+    dbm.add(destination)
     for alias in aliases:
-        dbm.add(db.Alias(name=quote_plus(alias), destination=destination))
+        dbm.add(Alias(name=quote_plus(alias), destination=destination))
 
     # Try to commit transaction. If fails, rollback transaction and pass through exception
     try:
