@@ -20,10 +20,15 @@
 ## OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ## SOFTWARE.
 
+from typing import List, Optional, Tuple
+from urllib.parse import quote_plus
+
+from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy.orm import relationship
 from sqlalchemy.schema import CheckConstraint, Column, ForeignKey, UniqueConstraint
 from sqlalchemy.types import Boolean, Integer, UnicodeText, TIMESTAMP
+from lc_sqlalchemy_dbutils.manager import DBManager
 from lc_sqlalchemy_dbutils.schema import TimestampDefaultExpression
 
 
@@ -71,10 +76,11 @@ class Destination(BaseTable):
     destination does not exist, or there is otherwise an error in redirecting an a destination.
     Common choices could be DuckDuckGo, Wikipedia, or Google.
     """
-    url = Column(UnicodeText, nullable=False, index=True)
+    url = Column(UnicodeText, nullable=False, index=True, unique=True)
     num_args = Column(Integer, nullable=False)
     is_fallback = Column(Boolean, nullable=False, index=True)
     is_default_fallback = Column(Boolean, nullable=False, server_default=text("false"))
+    aliases = relationship("Alias", backref="destination")
 
 
 class DestinationForeignKeyMixin:
@@ -111,3 +117,70 @@ class Alias(DestinationForeignKeyMixin, BaseTable):
     )
 
     name = Column(UnicodeText, nullable=False, index=True)
+
+
+def add_destination_with_aliases(dbm: DBManager,
+                                 url: str,
+                                 num_args: int,
+                                 aliases: List[str],
+                                 is_fallback: bool = False,
+                                 is_default_fallback: bool = False):
+    """
+    Args:
+        See destination and alias table schemata.
+    Description:
+        Validate arguments and add destination to database with provided alias(es).
+        Some validation is also done on the database. Any exceptions raised by the underlying
+        database driver, or any validation errors (ValueError), must be handled by the caller.
+    Preconditions:
+        Database manager has existing session with database
+    Raises:
+        ValueError: if arguments don't pass validation
+        Consult database driver and DBManager class for other possible errors
+    """
+    # Ensure num_args >= 0
+    if num_args < 0:
+        raise ValueError("num_args must be non-negative")
+    # Ensure number of aliases >= 1
+    # NOTE: Checked here due to lack of runtime type-checking
+    if not aliases:
+        raise ValueError("must provide at least one alias")
+    # Ensure num_args is 1 if is fallback destination
+    if is_fallback:
+        if num_args > 1:
+            raise ValueError("fallback destinations must have one argument")
+    # Ensure if destination is default fallback, is also fallback
+    elif is_default_fallback and not is_fallback:
+        is_fallback = True
+
+    # Flush pending transaction if within one to ensure
+    # can rollback destination addition transaction if fails
+    try:
+        dbm.commit()
+    except InvalidRequestError:
+        pass
+
+    # If is_default_fallback, determine if existing default fallback(s)
+    # Cannot have two default fallbacks, so must atomically add new
+    # destination as default and remove flag from existing.
+    if is_default_fallback:
+        existing_defaults = dbm.query(db.Destination, is_default_fallback=True).all()
+        if existing_defaults:
+            for destination in existing_defaults:
+                destination.is_default_fallback = False
+
+    # Add destination and alias records to session
+    destination = db.Destination(url=url,
+                                 num_args=num_args,
+                                 is_fallback=is_fallback,
+                                 is_default_fallback=is_default_fallback))
+    db.add(destination)
+    for alias in aliases:
+        dbm.add(db.Alias(name=quote_plus(alias), destination=destination))
+
+    # Try to commit transaction. If fails, rollback transaction and pass through exception
+    try:
+        dbm.commit()
+    except:
+        dbm.rollback()
+        raise
