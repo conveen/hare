@@ -20,6 +20,7 @@
 ## OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ## SOFTWARE.
 
+import os
 from string import Formatter
 from typing import List
 from urllib.parse import quote_plus, urlsplit, urlunsplit
@@ -69,7 +70,7 @@ class BaseTableMixin:
 BaseTable = declarative_base(cls=BaseTableMixin)
 
 
-class Destination(BaseTable):
+class Destination(BaseTable):   # type: ignore
     """destination table
 
     A destination represents a unique _URL_ and set of zero or more parameters.
@@ -86,7 +87,7 @@ class Destination(BaseTable):
     is_fallback = Column(Boolean, nullable=False, index=True)
     is_default_fallback = Column(Boolean, nullable=False, server_default=text("false"))
     description = Column(UnicodeText, nullable=False)
-    aliases = relationship("Alias", backref="destination")
+    aliases = relationship("Alias", backref="destination")  # type: ignore
 
 
 class DestinationForeignKeyMixin:
@@ -107,7 +108,7 @@ class DestinationForeignKeyMixin:
                       index=True)
 
 
-class Alias(DestinationForeignKeyMixin, BaseTable):
+class Alias(DestinationForeignKeyMixin, BaseTable):     # type: ignore
     """alias table
 
     Aliases act as references, or pointers, to destinations, and are the shortcuts users type to
@@ -170,8 +171,7 @@ def _gen_num_args_from_url(url: str) -> int:
     Raises:
         N/A
     """
-    # NOTE: Consider validation that all fields are positional (do not have field_name)
-    format_args = Formatter().parse(url)
+    format_args = list(Formatter().parse(url))
     # If only one entry and field_name is None, then doesn't have any format args
     # Each entry in format_args is 4-tuple with (iteral_text, field_name, format_spec, conversion)
     # See: https://docs.python.org/3.8/library/string.html#string.Formatter.parse
@@ -179,6 +179,9 @@ def _gen_num_args_from_url(url: str) -> int:
         num_args = 0
     else:
         num_args = len(format_args)
+        for _, field_name, __, ___ in format_args:
+            if field_name:
+                raise ValueError("must not have keyword arguments (\"{}\")".format(field_name))
     return num_args
 
 
@@ -214,7 +217,7 @@ def add_destination_with_aliases(dbm: DBManager,
 
     # Ensure num_args is 1 if is fallback destination
     if is_fallback:
-        if num_args > 1:
+        if num_args != 1:
             raise ValueError("fallback destinations must have one argument")
     # Ensure if destination is default fallback, is also fallback
     elif is_default_fallback and not is_fallback:
@@ -252,3 +255,95 @@ def add_destination_with_aliases(dbm: DBManager,
     except:
         dbm.rollback()
         raise
+
+
+if os.environ.get("ENVIRONMENT") == "TEST":
+    import unittest
+
+
+    class TestAddDestination(unittest.TestCase):
+        """Tests for add_destination_with_aliases and helpers."""
+
+        def setUp(self):
+            self.manager = DBManager("sqlite://")
+
+        def test_validate_netloc_url(self):
+            """Test that _validate_netloc_url raises exceptions
+            on invalid input, and replaces scheme when necessary.
+            """
+            tests = [
+                ("Not a URL", "This is not a URL", ValueError),
+                ("UNC path to network share", "\\\\fileshare02\\share_name", ValueError),
+                ("Domain without preceding slashes (//)", "www.python.org", ValueError),
+                ("URL without preceding slashes (//)", "www.python.org/downloads/", ValueError),
+                ("URL path without domain", "/downloads/python3.6.9", ValueError),
+                ("IP address and port without preceding slashes (//)", "172.84.99.127:8080/g", ValueError),
+                ("Amazon ARN", "arn:aws:iam::123456789012:user/username@domain.com", ValueError),
+                ("Valid network location without scheme",
+                 "//www.python.org/downloads",
+                 "http://www.python.org/downloads",),
+                ("Valid network location with scheme",
+                 "https://www.python.org/downloads",
+                 None,),
+            ]
+
+            for test_name, url, expected in tests:
+                with self.subTest(test_name=test_name):
+                    if expected is ValueError:
+                        self.assertRaises(expected, _validate_netloc_url, url)
+                    else:
+                        self.assertEqual(expected or url, _validate_netloc_url(url))
+
+        def test_gen_num_args_from_url(self):
+            """Test that _gen_num_args_from_url parses the correct number of positional
+            arguments from a format string, and raises a ValueError if format string
+            contains keyword arguments.
+            """
+            tests = [
+                ("One keyword argument (search)", "https://en.wikipedia.org/w/index.php?search={search}", ValueError),
+                ("Two keyword arguments (search, title)",
+                 "https://en.wikipedia.org/w/index.php?search={search}",
+                 ValueError),
+                ("Single keyword, single positional", "https://en.wikipedia.org/wiki/{}?title={title}", ValueError),
+                ("No arguments", "https://en.wikipedia.org/wiki/Joan_of_Arc", 0),
+                ("Single argument", "https://en.wikipedia.org/wiki/{}", 1),
+                ("Two arguments", "https://en.wikipedia.org/wiki/{}?title={}", 2),
+                ("Ten arguments", "https://en.wikipedia.org/wiki/{}?title={}{}{}{}{}{}{}{}{}", 10),
+            ]
+
+            for test_name, url, expected in tests:
+                with self.subTest(test_name=test_name):
+                    if expected is ValueError:
+                        self.assertRaises(expected, _gen_num_args_from_url, url)
+                    else:
+                        self.assertEqual(expected, _gen_num_args_from_url(url))
+
+        def test_add_destination_no_aliases(self):
+            """Test that add_destination_with_aliases raises ValueError
+            is not aliases provided.
+            """
+            self.assertRaises(ValueError,
+                              add_destination_with_aliases,
+                              self.manager,
+                              "https://wikipedia.org/wiki/{}",
+                              "Wikipedia",
+                              list())
+
+        def test_add_destination_fallback(self):
+            """Test that add_destination_with_aliases raises ValueError
+            if destination is fallback and number of arguments isn't 1.
+            """
+            tests = [
+                ("Fallback no arguments", "https://duckduckgo.com"),
+                ("Fallback more than one argument", "https://duckduckgo.com?q={}&ia={}"),
+            ]
+
+            for test_name, url in tests:
+                with self.subTest(test_name=test_name):
+                    self.assertRaises(ValueError,
+                                      add_destination_with_aliases,
+                                      self.manager,
+                                      url,
+                                      "This test should raise ValueError",
+                                      ["ddgs"],
+                                      True)
