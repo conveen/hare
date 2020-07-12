@@ -1,4 +1,5 @@
 ## -*- coding: UTF8 -*-
+
 ## app.py
 ## Copyright (c) 2020 conveen
 ##
@@ -20,36 +21,58 @@
 ## OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ## SOFTWARE.
 
-from os import getcwd, path, environ
+from os import environ
+
 from flask import Flask
+from lc_sqlalchemy_dbutils.manager import DBManager
 
-from apps.engine.src.routes import RouteRegistry
-from apps.engine.src.database import BaseTable
-from apps.engine.src.cli import initialize_parser
-from apps.common.manager import DBManager
+import hare_engine.src.database as db
+from hare_engine.src.routes import RouteRegistry
 
-def get_engine():
-    app = Flask('__main__')
-    config_object = environ.get('HARE_CONFIG_OBJECT')
+def gen_app() -> Flask:
+    """
+    Args:
+        N/A
+    Description:
+        Generate Flask app and conduct the following initialization tasks:
+            1) Resolve and validate the config object by using the HARE_CONFIG_OBJECT environment variable
+               See: https://flask.palletsprojects.com/en/1.1.x/api/#flask.Config.from_object
+            2) Set the app secret key
+            3) Register routes on the app using the RouteRegistry
+            4) Initialize the database manager and attach it to the app
+    Preconditions:
+        N/A
+    Raises:
+        ValueError: if either HARE_DATABASE_URI or HARE_SECRET_KEY are not specified in the config
+    """
+    # Set import_name to "__main__" so resource loading works properly
+    # See: https://flask.palletsprojects.com/en/1.1.x/api/#api
+    app = Flask("__main__")
+
+    # Resolve configuration object and validate options. If none provided, use default.
+    config_object = environ.get("HARE_CONFIG_OBJECT")
     if config_object is not None:
         app.config.from_object(config_object)
     else:
-        app.config.from_object('apps.engine.config.DefaultConfig')
-    with open(app.config.get('HARE_SECRET_KEY'), 'r', encoding='UTF8') as scf:
-        app.secret_key = scf.read()
-    manager = DBManager(metadata=BaseTable.metadata)
-    manager.initialize(
-        app, 
-        bootstrap=app.config.get('HARE_DATABASE_BOOTSTRAP_ON_STARTUP')
-    )
-    RouteRegistry.initialize(app)
-    return app
+        app.config.from_object("hare_engine.default_config")
+    for option in ("HARE_DATABASE_URI", "HARE_SECRET_KEY"):
+        if not app.config.get(option):
+            raise ValueError("Must provide {} in config".format(option))
 
-def engine_main():
-    app = get_engine()
-    parser = initialize_parser()
-    args = parser.parse_args()
-    if app.config.get('HARE_SSL_ENABLE') or args.ssl:
-        app.run(host=args.host, port=args.port, debug=args.debug, ssl_context='adhoc')
-    else:
-        app.run(host=args.host, port=args.port, debug=args.debug)
+    # Read secret key from config, is required for Sessions to work properly
+    # See: https://flask.palletsprojects.com/en/1.1.x/api/#sessions
+    # NOTE: "HARE_SECRET_KEY" is guaranteed to have a value due to check above
+    with open(app.config.get("HARE_SECRET_KEY")) as scf:    # type: ignore
+        app.secret_key = scf.read()
+
+    # Attach routes to app
+    RouteRegistry.register_routes(app)
+
+    # Initialize database manager and attach to app
+    # NOTE: "HARE_DATABASE_URI" is guaranteed to have a value due to check above
+    app.dbm = (DBManager(app.config.get("HARE_DATABASE_URI"), db.BaseTable.metadata, True)  # type: ignore
+               .create_engine()
+               .create_session_factory())
+    if app.config.get("HARE_DATABASE_BOOTSTRAP_ON_STARTUP"):
+        app.dbm.bootstrap_db()
+    return app
