@@ -66,7 +66,7 @@ def bootstrap(args: Namespace) -> int:
         return 1
 
     destinations = (
-        ("https://https://duckduckgo.com/?q={}", "Search DuckDuckGo", ["d", "ddg", "duckduckgo"], True, not args.google_default),
+        ("https://duckduckgo.com/?q={}", "Search DuckDuckGo", ["d", "ddg", "duckduckgo"], True, not args.google_default),
         ("https://www.google.com/search?q={}", "Search Google", ["g", "google"], True, args.google_default),
         ("https://en.wikipedia.org/w/index.php?search={}", "Search Wikipedia", ["w", "wp", "wikipedia"], False, False),
         ("https://www.reddit.com/r/{}", "Reddit - browse to specific subreddit", ["r", "reddit"], False, False),
