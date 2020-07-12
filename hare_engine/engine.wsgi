@@ -28,6 +28,7 @@ import sys
 __author__ = "conveen"
 
 
-sys.path.insert(0, Path(__file__).parent.absolute())
-from src.app import get_engine
-application = get_engine()
+# Add hare_engine directory to path
+sys.path.insert(0, Path(__file__).parent.parent.absolute())
+from hare_engine.src.app import gen_app
+application = gen_app()
