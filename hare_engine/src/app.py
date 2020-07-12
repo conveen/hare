@@ -57,7 +57,7 @@ def gen_app() -> Flask:
         app.config.from_object("hare_engine.default_config")
     for option in ("HARE_DATABASE_URI", "HARE_SECRET_KEY"):
         if not app.config.get(option):
-            raise ValueError("Must provide {} in config".format(option))
+            raise ValueError("must provide {} in config".format(option))
 
     # Read secret key from config, is required for Sessions to work properly
     # See: https://flask.palletsprojects.com/en/1.1.x/api/#sessions
