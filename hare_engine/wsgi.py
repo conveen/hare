@@ -1,5 +1,5 @@
 ## -*- coding: UTF8 -*-
-## engine.wsgi
+## wsgi.py
 ##
 ## Copyright (c) 2020 conveen
 ##
@@ -31,4 +31,4 @@ __author__ = "conveen"
 # Add hare_engine directory to path
 sys.path.insert(0, Path(__file__).parent.parent.absolute())
 from hare_engine.src.app import gen_app
-application = gen_app()
+app = gen_app()
