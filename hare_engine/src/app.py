@@ -70,9 +70,8 @@ def gen_app() -> Flask:
 
     # Initialize database manager and attach to app
     # NOTE: "HARE_DATABASE_URI" is guaranteed to have a value due to check above
-    app.dbm = (DBManager(app.config.get("HARE_DATABASE_URI"), db.BaseTable.metadata, True)  # type: ignore
-               .create_engine()
-               .create_session_factory())
+    app.dbm = DBManager(app.config.get("HARE_DATABASE_URI"), db.BaseTable.metadata, True)  # type: ignore
+    app.dbm.connect()
     if app.config.get("HARE_DATABASE_BOOTSTRAP_ON_STARTUP"):
         app.dbm.bootstrap_db()
     return app
