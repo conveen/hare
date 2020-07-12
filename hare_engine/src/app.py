@@ -45,9 +45,7 @@ def gen_app() -> Flask:
     Raises:
         ValueError: if either HARE_DATABASE_URI or HARE_SECRET_KEY are not specified in the config
     """
-    # Set import_name to "__main__" so resource loading works properly
-    # See: https://flask.palletsprojects.com/en/1.1.x/api/#api
-    app = Flask("__main__")
+    app = Flask(__name__)
 
     # Resolve configuration object and validate options. If none provided, use default.
     config_object = environ.get("HARE_CONFIG_OBJECT")
