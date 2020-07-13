@@ -28,7 +28,7 @@ from urllib.parse import quote_plus, urlsplit, urlunsplit
 from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy.orm import relationship
-from sqlalchemy.schema import Column, ForeignKey, UniqueConstraint
+from sqlalchemy.schema import Column, ForeignKey
 from sqlalchemy.sql.expression import text
 from sqlalchemy.types import Boolean, Integer, UnicodeText, TIMESTAMP
 from lc_sqlalchemy_dbutils.manager import DBManager
@@ -119,11 +119,7 @@ class Alias(DestinationForeignKeyMixin, BaseTable):     # type: ignore
     between alias and destination. In other words, a destination can have many aliases, but an alias
     must uniquely point to a single destination (enforced by a unique constraint on dest_id and name).
     """
-    __table_args__ = (
-        UniqueConstraint("dest_id", "name"),
-    )
-
-    name = Column(UnicodeText, nullable=False, index=True)
+    name = Column(UnicodeText, nullable=False, unique=True, index=True)
 
 
 ##### Database Routines (and helpers) #####
