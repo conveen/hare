@@ -45,7 +45,15 @@ setuptools.setup(
         "Issue Tracker": "https://github.com/conveen/hare/issues",
         "Releases": "https://github.com/conveen/hare/releases"
     },
-    packages="hare_engine",
+    packages=setuptools.find_packages(include=["hare_engine", "hare_engine.*"]),
+    package_data={
+        "hare_engine.src": [
+            "static/*.ico",
+            "templates/*.html",
+            "static/js/*.js",
+            "static/css/*.css"
+        ],
+    },
     install_requires=[
         "Flask>=1.1",
         "lc-flask-routes[all]",
