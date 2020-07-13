@@ -52,18 +52,20 @@ then
     echo "::: ERROR: Package directory ${PACKAGE_NAME} does not exist"
     exit 1
 fi
-for FILENAME in "README.md" "LICENSE"
-do
-    if ! [ -f "${PACKAGE_NAME}/${FILENAME}" ]
-    then
-        echo "::: ERROR: Package directory must contain ${FILENAME} file"
-        exit 1
-    else
-        echo "::: INFO: Moving ${FILENAME} to root directory and re-adding to source control"
-        mv "${PACKAGE_NAME}/${FILENAME}" .
-        git add "${FILENAME}"
-    fi
-done
+# The following section isn't necessary for now, as the repo
+# only contains the engine source.
+## for FILENAME in "README.md" "LICENSE"
+## do
+##     if ! [ -f "${PACKAGE_NAME}/${FILENAME}" ]
+##     then
+##         echo "::: ERROR: Package directory must contain ${FILENAME} file"
+##         exit 1
+##     else
+##         echo "::: INFO: Moving ${FILENAME} to root directory and re-adding to source control"
+##         mv "${PACKAGE_NAME}/${FILENAME}" .
+##         git add "${FILENAME}"
+##     fi
+## done
 
 # Remove all other app directories
 # NOTE: All app directories must be named 'hare_<app_name>' and be defined at top level
@@ -76,7 +78,7 @@ find "${PACKAGE_NAME}" -type f -iregex '.*\.py' -exec ./scripts/remove-tests.sh 
 echo "::: INFO: Generating Setuptools setup.py file and removing template from app directory"
 cat "${PACKAGE_NAME}/scripts/setup.py" | sed -e "s/PACKAGE_VERSION/${PACKAGE_VERSION}/g" > setup.py
 chmod 744 setup.py
-git rm -rf "${PACKAGE_NAME}/scripts"
+git rm "${PACKAGE_NAME}/scripts/setup.py"
 
 echo "::: INFO: Generating source distribution to dist directory"
 python3 setup.py sdist
