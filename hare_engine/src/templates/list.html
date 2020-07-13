@@ -4,11 +4,15 @@
         <meta charset="utf-8">
         <meta http-equiv="X-UA-Compatible" content="IE=edge">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="description" content="Hare Smart Bookmark Directory">
+        <meta name="description" content="Hare Smart Shortcut Directory">
         <meta name="author" content="Conveen">
-        <title>Hare Smart Bookmark Directory</title>
-        <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}" />
-        <link rel="stylesheet" href="{{ url_for('static', filename='css/datatables.min.css') }}" />
+        <title>Hare Smart Shortcut Directory</title>
+        <link rel="stylesheet"
+              href="{{ url_for('static', filename='css/bootstrap.min.css') }}"
+              integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk"/>
+        <link rel="stylesheet" 
+              href="{{ url_for('static', filename='css/datatables.min.css') }}"
+              integrity="sha384-3L0qvXR+RiCHQoBFTWVYblhMPTVDHZDqVwJJKwg9D6Z6nF/z28v0egSvjvW4I+sC"/>
         <style>
             /* Sticky footer styles
             -------------------------------------------------- */
@@ -38,12 +42,14 @@
             </a>
         </nav>
 
+        <!-- App wrapper -->
         <div id="app-wrapper" class="container-fluid">
-            <h1 class="text-center">Bookmark Directory</h1>
-            <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#add-bookmark-modal">
-                Add Bookmark
+            <h1 class="text-center">Shortcut Directory</h1>
+            <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#add-shortcut-modal">
+                Add Shortcut
             </button>
 
+            <!-- Directory table -->
             <table id="directory-table" class="table">
                 <thead class="thead-dark">
                     <tr>
@@ -63,7 +69,8 @@
                 </tbody>
             </table>
 
-            <div id="add-bookmark-modal" class="modal fade" tabindex="-1" role="dialog">
+            <!-- Add shortcut modal -->
+            <div id="add-shortcut-modal" class="modal fade" tabindex="-1" role="dialog">
 		    	<div class="modal-dialog">
                     <div class="modal-content">
                         <div class="modal-header">
@@ -74,34 +81,34 @@
                         <div class="modal-body">
                             <form action="/new" method="POST">
                                 <div class="form-group">
-                                    <label for="bookmark-url">URL</label>
-                                    <input type="text" class="form-control" id="bookmark-url" name="url" aria-describedby="bookmark-url-help">
-                                    <small id="bookmark-url-help" class="form-text text-muted">
-                                        Bookmark URL, such as "https://duckduckgo.com/?q={}". Use "{}" for parameter placeholders.
+                                    <label for="shortcut-url">URL</label>
+                                    <input type="text" class="form-control" id="shortcut-url" name="url" aria-describedby="shortcut-url-help">
+                                    <small id="shortcut-url-help" class="form-text text-muted">
+                                        Shortcut URL, such as "https://duckduckgo.com/?q={}". Use "{}" for parameter placeholders.
                                     </small>
                                 </div>
                                 <div class="form-group">                                    
-                                    <label for="bookmark-description">Description</label>
-                                    <input type="text" class="form-control" id="bookmark-description" name="description" aria-describedby="bookmark-description-help">
-                                    <small id="bookmark-description-help" class="form-text text-muted">
-                                        Description of the bookmark, such as "Search DuckDuckGo."
-                                        This will help others understand the bookmark URL and parameters.
+                                    <label for="shortcut-description">Description</label>
+                                    <input type="text" class="form-control" id="shortcut-description" name="description" aria-describedby="shortcut-description-help">
+                                    <small id="shortcut-description-help" class="form-text text-muted">
+                                        Description of the shortcut, such as "Search DuckDuckGo."
+                                        This will help others understand the shortcut URL and parameters.
                                     </small>
                                 </div>
                                 <div class="form-group">
-                                    <label for="bookmark-aliases">Aliases</label>
-                                    <input type="text" class="form-control" id="bookmark-aliases" name="aliases" aria-describedby="bookmark-aliases-help">
-                                    <small id="bookmark-aliases-help" class="form-text text-muted">
-                                        One or more aliases for the bookmark, separated by commas and without spaces
+                                    <label for="shortcut-aliases">Aliases</label>
+                                    <input type="text" class="form-control" id="shortcut-aliases" name="aliases" aria-describedby="shortcut-aliases-help">
+                                    <small id="shortcut-aliases-help" class="form-text text-muted">
+                                        One or more aliases for the shortcut, separated by commas and without spaces
                                         (i.e., "d,ddg,duckduckgo").
                                     </small>
-                                    <label for="bookmark-aliases">Is Fallback</label>
-                                    <select class="form-control" id="bookmark-aliases" name="is_fallback">
+                                    <label for="shortcut-aliases">Is Fallback</label>
+                                    <select class="form-control" id="shortcut-aliases" name="is_fallback">
                                         <option>True</option>
                                         <option>False</option>
                                     </select>
-                                    <small id="bookmark-is-fallback-help" class="form-text text-muted">
-                                        Whether the bookmark can be used as a fallback. Note that fallbacks must take
+                                    <small id="shortcut-is-fallback-help" class="form-text text-muted">
+                                        Whether the shortcut can be used as a fallback. Note that fallbacks must take
                                         a <i>single</i> parameter, like DuckDuckGo, Google, or Bing.
                                     </small>
                                 </div>
@@ -123,10 +130,17 @@
             </div>
         </footer>
 
-        <script type="text/javascript" src="{{ url_for('static', filename='js/jquery.slim.min.js') }}"></script>
-        <script type="text/javascript" src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
-        <script type="text/javascript" src="{{ url_for('static', filename='js/datatables.min.js') }}"></script>
+        <script type="text/javascript"
+                src="{{ url_for('static', filename='js/jquery.slim.min.js') }}"
+                integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj"></script>
+        <script type="text/javascript"
+                src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"
+                integrity="sha384-1CmrxMRARb6aLqgBO7yyAxTOQE2AKb9GfXnEo760AUcUmFx3ibVJJAzGytlQcNXd"></script>
+        <script type="text/javascript"
+                src="{{ url_for('static', filename='js/datatables.min.js') }}"
+                integrity="sha384-XW25Fu/i9x9ksGjbf44qbJP2NC+O3/IwobexnFISEw/WlgFs9KAXO+6tXpCLT/Rs"></script>
         <script type="text/javascript">
+            // Initialize directory table DataTable object on page load
             $(document).ready(function () {
                 $("#directory-table").DataTable({
                     // Disable initial pass ordering (ordering is done server side initially)
