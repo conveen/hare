@@ -7,7 +7,8 @@
         <meta name="description" content="Hare Smart Bookmark Directory">
         <meta name="author" content="Conveen">
         <title>Hare Smart Bookmark Directory</title>
-        <link rel="stylesheet" href="{{ url_for("static", filename="css/bootstrap.min.css") }}" />
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}" />
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/datatables.min.css') }}" />
         <style>
             /* Sticky footer styles
             -------------------------------------------------- */
@@ -38,6 +39,78 @@
         </nav>
 
         <div id="app-wrapper" class="container-fluid">
+            <h1 class="text-center">Bookmark Directory</h1>
+            <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#add-bookmark-modal">
+                Add Bookmark
+            </button>
+
+            <table id="directory-table" class="table">
+                <thead class="thead-dark">
+                    <tr>
+                        <th scope="col">Aliases</th>
+                        <th scope="col">Description</th>
+                        <th scope="col">URL</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for destination in destinations %}
+                        <tr>
+                            <th scope="row">{{ destination.aliases }}</th>
+                            <td>{{ destination.description }}</td>
+                            <td>{{ destination.url }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <div id="add-bookmark-modal" class="modal fade" tabindex="-1" role="dialog">
+		    	<div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <form action="/new" method="POST">
+                                <div class="form-group">
+                                    <label for="bookmark-url">URL</label>
+                                    <input type="text" class="form-control" id="bookmark-url" name="url" aria-describedby="bookmark-url-help">
+                                    <small id="bookmark-url-help" class="form-text text-muted">
+                                        Bookmark URL, such as "https://duckduckgo.com/?q={}". Use "{}" for parameter placeholders.
+                                    </small>
+                                </div>
+                                <div class="form-group">                                    
+                                    <label for="bookmark-description">Description</label>
+                                    <input type="text" class="form-control" id="bookmark-description" name="description" aria-describedby="bookmark-description-help">
+                                    <small id="bookmark-description-help" class="form-text text-muted">
+                                        Description of the bookmark, such as "Search DuckDuckGo."
+                                        This will help others understand the bookmark URL and parameters.
+                                    </small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="bookmark-aliases">Aliases</label>
+                                    <input type="text" class="form-control" id="bookmark-aliases" name="aliases" aria-describedby="bookmark-aliases-help">
+                                    <small id="bookmark-aliases-help" class="form-text text-muted">
+                                        One or more aliases for the bookmark, separated by commas and without spaces
+                                        (i.e., "d,ddg,duckduckgo").
+                                    </small>
+                                    <label for="bookmark-aliases">Is Fallback</label>
+                                    <select class="form-control" id="bookmark-aliases" name="is_fallback">
+                                        <option>True</option>
+                                        <option>False</option>
+                                    </select>
+                                    <small id="bookmark-is-fallback-help" class="form-text text-muted">
+                                        Whether the bookmark can be used as a fallback. Note that fallbacks must take
+                                        a <i>single</i> parameter, like DuckDuckGo, Google, or Bing.
+                                    </small>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Submit</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <footer class="footer navbar-fixed-bottom">
@@ -49,6 +122,25 @@
                 </ul>
             </div>
         </footer>
+
+        <script type="text/javascript" src="{{ url_for('static', filename='js/jquery.slim.min.js') }}"></script>
+        <script type="text/javascript" src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+        <script type="text/javascript" src="{{ url_for('static', filename='js/datatables.min.js') }}"></script>
+        <script type="text/javascript">
+            $(document).ready(function () {
+                $("#directory-table").DataTable({
+                    // Disable initial pass ordering (ordering is done server side initially)
+                    order: [],
+                    // Disable paging
+                    paging: false,
+                    // Disable the display of a 'processing' indicator when the table
+                    // is being processed (i.e., during sorting)
+                    processing: false,
+                    // Set maximum height of table before scrolling required
+                    scrollY: "100%",
+                });
+            });
+        </script>
     </body>
 </html>
 
