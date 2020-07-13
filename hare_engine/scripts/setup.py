@@ -37,7 +37,7 @@ setuptools.setup(
     version="PACKAGE_VERSION",
     author="conveen",
     author_email="conveen@protonmail.com",
-    description="Hare Smart Bookmarks: search engine",
+    description="Hare: Smart Shortcut Engine",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/conveen/hare",
@@ -51,7 +51,12 @@ setuptools.setup(
         "lc-flask-routes[all]",
         "lc-sqlalchemy-dbutils",
     ],
+    entry_points={"console_scripts": [
+        "hare-bootstrap=hare_engine.scripts.bootstrap:main",
+        "hare-newdest=hare_engine.scripts.newdest:main",
+    ]},
     classifiers=[
+        "Framework :: Flask",
         "Intended Audience :: Developers",
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
