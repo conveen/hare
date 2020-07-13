@@ -1,4 +1,4 @@
-# Hare: Smart Shortcut Service
+# Hare: Smart Shortcut Engine
 
 ## Overview
 
