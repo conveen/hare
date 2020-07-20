@@ -73,7 +73,7 @@ def QueryURLParameter(arg: str) -> Tuple[str, Optional[List[str]]]:     # pylint
     # Split alias from arguments
     split_arg = arg.split(" ")
     alias = split_arg.pop(0)
-    arguments = [arg for arg in split_arg if arg != ""]
+    arguments = [quote_plus(arg) for arg in split_arg if arg != ""]
     return (alias, arguments)
 
 
@@ -184,7 +184,7 @@ class IndexRoute(BaseRoute):
             return flask.redirect(destination.url)
         # If destination is fallback, combine arguments into single
         if destination.is_fallback:
-            formatted_arguments: Tuple[str, ...] = (quote_plus(" ".join(arguments)),)
+            arguments = [" ".join(arguments)]
         # Otherwise, validate number of arguments against destination
         else:
             # If number of arguments is less than expected, return 400 Bad Request
@@ -194,10 +194,10 @@ class IndexRoute(BaseRoute):
             # and truncate arguments list
             if len(arguments) > destination.num_args:
                 arguments[destination.num_args-1] = " ".join(arguments[destination.num_args-1:])
-                formatted_arguments = tuple(quote_plus(arg) for arg in arguments[:destination.num_args])
+                arguments = arguments[:destination.num_args]
 
         try:
-            return flask.redirect(destination.url.format(*formatted_arguments))
+            return flask.redirect(destination.url.format(*arguments))
         except:
             # If formatting URL fails, return 400 Bad Request
             flask.abort(400)
