@@ -22,7 +22,7 @@
 
 import os
 from string import Formatter
-from typing import List
+from typing import List, Optional
 from urllib.parse import quote_plus, urlsplit, urlunsplit
 
 from sqlalchemy.exc import InvalidRequestError
@@ -253,15 +253,57 @@ def add_destination_with_aliases(dbm: DBManager,
         raise
 
 
+def gen_default_fallback(dbm: DBManager) -> Destination:
+    """
+    Args:
+        dbm     => database connection manager
+    Description:
+        Retrieve default fallback destination from database (without aliases).
+    Preconditions:
+        dbm has existing session with database.
+    Raises:
+        ValueError: if no default destination (this is considered DB error)
+    """
+    destination = dbm.query(Destination, is_default_fallback=True).first()
+    if not destination:
+        raise ValueError("must have default fallback destination")
+    return destination
+
+
+def gen_destination_for_alias(dbm: DBManager, alias: str) -> Optional[Destination]:
+    """
+    Args:
+        dbm     => database connection manager
+        alias   => alias to resolve
+    Description:
+        Resolve destination for provided alias, if exists.
+    Preconditions:
+        dbm has existing session with database.
+    Raises:
+        N/A
+    """
+    return (dbm
+            .query(Destination)
+            .join(Alias)
+            .filter(Alias.name == quote_plus(alias))
+            .first())
+
+
 if os.environ.get("ENVIRONMENT") == "TEST":
     import unittest
 
 
-    class TestAddDestination(unittest.TestCase):
-        """Tests for add_destination_with_aliases and helpers."""
+    class TestDBBase(unittest.TestCase):
+        """Base class for DB tests."""
 
         def setUp(self):
-            self.manager = DBManager("sqlite://")
+            self.dbm = DBManager("sqlite://", BaseTable.metadata)
+            self.dbm.connect().bootstrap_db()
+            self.session = self.dbm.gen_session()
+
+
+    class TestAddDestination(TestDBBase):
+        """Tests for add_destination_with_aliases and helpers."""
 
         def test_validate_netloc_url(self):
             """Test that _validate_netloc_url raises exceptions
@@ -320,7 +362,7 @@ if os.environ.get("ENVIRONMENT") == "TEST":
             """
             self.assertRaises(ValueError,
                               add_destination_with_aliases,
-                              self.manager,
+                              self.dbm,
                               "https://wikipedia.org/wiki/{}",
                               "Wikipedia",
                               list())
@@ -338,8 +380,66 @@ if os.environ.get("ENVIRONMENT") == "TEST":
                 with self.subTest(test_name=test_name):
                     self.assertRaises(ValueError,
                                       add_destination_with_aliases,
-                                      self.manager,
+                                      self.dbm,
                                       url,
                                       "This test should raise ValueError",
                                       ["ddgs"],
                                       True)
+
+
+    class TestGenDestination(TestDBBase):
+        """Tests for gen_default_fallback and gen_destination_for_alias."""
+
+        def setUp(self):
+            super().setUp()
+            add_destination_with_aliases(self.dbm,
+                                         "https://www.reddit.com/r/{}",
+                                         "Reddit - subreddit",
+                                         ["r", "reddit"],
+                                         False,
+                                         False)
+
+        def _insert_default_fallback(self):
+            """Helper function to insert DuckDuckGo entry into database."""
+            add_destination_with_aliases(self.dbm,
+                                         "https://duckduckgo.com?q={}",
+                                         "DuckDuckGo",
+                                         ["ddg"],
+                                         True,
+                                         True)
+
+        def test_gen_default_fallback_is_destination(self):
+            """Test that gen_default_fallback returns the
+            Destination record for default fallback when one exists."""
+            # Start transaction and add default fallback to database
+            # NOTE: Must begin a nested transaction, as autocommit=False by default
+            #       which automatically starts a transaction when Session is created.
+            # See: https://docs.sqlalchemy.org/en/13/orm/session_api.html#sqlalchemy.orm.session.SessionTransaction
+            self.session.begin_nested()
+            self._insert_default_fallback()
+
+            destination = gen_default_fallback(self.dbm)
+            self.assertEqual(Destination, type(destination))
+            self.assertEqual("https://duckduckgo.com?q={}", destination.url)
+
+            self.session.rollback()
+
+        def test_gen_default_fallback_without_default_fallback(self):
+            """Test that gen_default_fallback raises a ValueError
+            when no default fallback exists in database.
+            """
+            self.assertRaises(ValueError, gen_default_fallback, self.dbm)
+
+        def test_gen_destination_for_alias_is_destination(self):
+            """Test that gen_destination_for_alias returns
+            (the correct) Destination record.
+            """
+            destination = gen_destination_for_alias(self.dbm, "reddit")
+            self.assertIsInstance(destination, Destination)
+            self.assertEqual("https://www.reddit.com/r/{}", destination.url)
+
+        def test_gen_destination_for_alias_invalid_alias(self):
+            """Test that gen_destination_for_alias returns None for
+            non-existent alias.
+            """
+            self.assertIsNone(gen_destination_for_alias(self.dbm, "twitter"))
