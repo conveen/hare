@@ -165,7 +165,7 @@ class IndexRoute(BaseRoute):
         # Otherwise, validate number of arguments against destination
         else:
             # If number of arguments is less than expected, return 400 Bad Request
-            # TODO: Redirect to /list with message that number of args didn't match expectation
+            # NOTE: Redirect to /list with message that number of args didn't match expectation
             if len(arguments) < destination.num_args:
                 flask.abort(400)
             # If number of arguments is more than expected, merge remainder into last argument
@@ -206,8 +206,18 @@ def ListURLParameter(delim: str) -> Callable[[str], List[str]]:     # pylint: di
         N/A
     """
     def f(arg: str) -> List[str]:   # pylint: disable=C0103
-        return arg.strip().split(delim)
+        return [alias.strip() for alias in arg.strip().split(delim) if alias]
     return f
+
+
+def StringBool(arg: str) -> bool:   # pylint: disable=C0103
+    """Implementation inspiration taken from
+    https://github.com/python/cpython/blob/3.8/Lib/distutils/util.py#L306
+    """
+    arg = arg.lower()
+    if arg in {"true", "t", "yes", "y", "1"}:
+        return True
+    return False
 
 
 class NewDestinationRoute(BaseRoute):
@@ -230,13 +240,13 @@ class NewDestinationRoute(BaseRoute):
                 .add_argument("url", required=True)
                 .add_argument("description", required=True)
                 .add_argument("aliases", type=ListURLParameter(","), required=True)
-                .add_argument("is_fallback", type=bool, default=False)
-                .add_argument("no_redirect", type=bool, default=False))
+                .add_argument("is_fallback", type=StringBool, default=False)
+                .add_argument("no_redirect", type=StringBool, default=False))
 
     @classmethod
     def post(cls,
              app: WerkzeugLocalProxy,
-             _: WerkzeugLocalProxy,
+             request: WerkzeugLocalProxy,
              __: WerkzeugLocalProxy,
              route_kwargs: Dict[str, Any]) -> RouteResponse:
         try:
