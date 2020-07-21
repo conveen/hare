@@ -96,62 +96,46 @@ class IndexRoute(BaseRoute):
 
     ROUTE_MAP = {"/": {"endpoint": "index", "methods": ["GET", "POST"]}}
 
-    @staticmethod
-    def _gen_default_fallback(dbm: DBManager) -> db.Destination:
-        """
-        Args:
-            dbm     => database connection manager
-        Description:
-            Retrieve default fallback destination from database.
-        Preconditions:
-            dbm has existing session with database.
-        Raises:
-            HTTPException: if query fails for any reason, or
-                           if default fallback not defined in the database
-        """
-        try:
-            destination = dbm.query(db.Destination, is_default_fallback=True).first()
-        except:
-            # If query fails, return 500 Internal Server Error
-            flask.abort(500)
-        # If no default fallback in database, this is considered _server_ error
-        if not destination:
-            flask.abort(500)
-        return destination
-
-    @staticmethod
-    def _gen_destination_from_alias(dbm: DBManager, alias: str) -> db.Destination:
-        """
-        Args:
-            dbm     => database connection manager
-            alias   => alias to resolve
-        Description:
-            Resolve destination for provided alias.
-        Preconditions:
-            dbm has existing session with database.
-        Raises:
-            HTTPException: if query fails for any reason, or
-                           if alias doesn't resolve to destination
-        """
-        try:
-            destination = (dbm
-                           .query(db.Destination)
-                           .join(db.Alias)
-                           .filter(db.Alias.name == quote_plus(alias))
-                           .first())
-        except:
-            # If query fails, return 500 Internal Server Error
-            flask.abort(500)
-        # If alias does not resolve to destination, return 400 Bad Request
-        if not destination:
-            flask.abort(400)
-        return destination
-
     @classmethod
     def gen_request_parser(cls) -> RequestParser:
         return (RequestParser()
                 .add_argument("query", type=QueryURLParameter, required=True)
                 .add_argument("fallback"))
+
+    @classmethod
+    def _resolve_destination_for_query(cls,
+                                       dbm: DBManager,
+                                       alias: Optional[str],
+                                       fallback_alias: Optional[str]) -> db.Destination:
+        """
+        Args:
+            alias           => destination alias, or first destination parameter if no alias provided
+            fallback_alias  => optional fallback destination alias
+        Description:
+            Resolves destination for provided alias and fallback alias using the following algorithm:
+                If neither alias nor fallback_alias provided, return default fallback
+                If alias provided, and does resolve to destination, return it
+                If alias provided but does not resolve
+                    If fallback alias provided and does resolve, return it
+                    If fallback alias provided and does not resolve, return default fallback
+                If no alias provided, but fallback alias provided, return it
+        Preconditions:
+            dbm has existing session with database.
+        Raises:
+            HTTPException: if db.gen_default_fallback throws ValueError, as default fallback must exist in DB
+        """
+        destination = None
+        if alias:
+            destination = db.gen_destination_for_alias(dbm, alias)
+        if not destination and fallback_alias:
+            destination = db.gen_destination_for_alias(dbm, fallback_alias)
+        if not destination:
+            try:
+                return db.gen_default_fallback(dbm)
+            except ValueError:
+                # See: db.gen_default_fallback
+                flask.abort(500)
+        return destination
 
     @classmethod
     def get(cls,
@@ -166,28 +150,22 @@ class IndexRoute(BaseRoute):
         # If query provided, separate into alias and arguments
         alias, arguments = (None, list()) if not query else query
 
-        # If no alias or fallback provided, retrieve default fallback from database
-        if not (alias or fallback_alias):
-            destination = cls._gen_default_fallback(app.dbm)
-        # Otherwise, resolve alias or fallback to destination
-        else:
-            # If the query is "list" redirect to the /list endpoint immediately
-            if alias == "list":
-                return flask.redirect(flask.url_for("list_destinations"))
-            # NOTE: The condition above checks if both alias and fallback_alias are None.
-            #       We only hit this else block if one of them aren't, thus the second argument
-            #       to _gen_destination_from_alias is guaranteed to not be None.
-            destination = cls._gen_destination_from_alias(app.dbm, alias or fallback_alias)     # type: ignore
+        # Resolve destination for provided alias and fallback
+        if alias == "list":
+            return flask.redirect(flask.url_for("list_destinations"))
+        destination = cls._resolve_destination_for_query(app.dbm, alias, fallback_alias)
 
         # If destination doesn't take arguments, redirect immediately
         if destination.num_args == 0:
             return flask.redirect(destination.url)
-        # If destination is fallback, combine arguments into single
+        # If destination is fallback, combine all arguments (including parsed alias) into single
         if destination.is_fallback:
+            arguments.insert(0, alias)
             arguments = [" ".join(arguments)]
         # Otherwise, validate number of arguments against destination
         else:
             # If number of arguments is less than expected, return 400 Bad Request
+            # TODO: Redirect to /list with message that number of args didn't match expectation
             if len(arguments) < destination.num_args:
                 flask.abort(400)
             # If number of arguments is more than expected, merge remainder into last argument
@@ -199,8 +177,12 @@ class IndexRoute(BaseRoute):
         try:
             return flask.redirect(destination.url.format(*arguments))
         except:
-            # If formatting URL fails, return 400 Bad Request
-            flask.abort(400)
+            # If formatting URL fails, attempt to redirect to default fallback
+            # with empty query ("")
+            try:
+                return flask.redirect(db.gen_default_fallback(app.dbm).url.format(""))
+            except:
+                flask.abort(500)
 
     @classmethod
     def post(cls,
@@ -334,8 +316,6 @@ class ListDestinationsRoute(BaseRoute):
 if os.environ.get("ENVIRONMENT") == "TEST":
     import unittest
 
-    from werkzeug.exceptions import HTTPException
-
 
     class TestQueryURLParameter(unittest.TestCase):
         """Tests for QueryURLParameter."""
@@ -388,6 +368,7 @@ if os.environ.get("ENVIRONMENT") == "TEST":
 
         def setUp(self):
             super().setUp()
+            IndexRoute.register_routes(self.app)
             self.session = self.app.dbm.gen_session()
             # Add some destinations to the database
             db.add_destination_with_aliases(self.app.dbm,
@@ -396,52 +377,32 @@ if os.environ.get("ENVIRONMENT") == "TEST":
                                             ["r", "reddit"],
                                             False,
                                             False)
-
-        def test_gen_default_fallback_is_destination(self):
-            """Test that IndexRoute._gen_default_fallback returns the
-            Destination record for default fallback when on exists."""
-            # Start transaction and add default fallback to database
-            # NOTE: Must begin a nested transaction, as autocommit=False by default
-            #       which automatically starts a transaction when Session is created.
-            # See: https://docs.sqlalchemy.org/en/13/orm/session_api.html#sqlalchemy.orm.session.SessionTransaction
-            self.session.begin_nested()
+        def _insert_default_fallback(self):
+            """Helper function to insert DuckDuckGo entry into database."""
             db.add_destination_with_aliases(self.app.dbm,
                                             "https://duckduckgo.com?q={}",
                                             "DuckDuckGo",
                                             ["ddg"],
                                             True,
                                             True)
-            destination = IndexRoute._gen_default_fallback(self.app.dbm)
-            self.assertEqual(db.Destination, type(destination))
-            self.assertEqual("https://duckduckgo.com?q={}", destination.url)
+
+        def test_query_alias_not_exist_with_fallback(self):
+            """Test that query with alias and fallback, where alias doesn't exist,
+            gets redirected to the fallback destination with alias + rest of query
+            passed as single parameter.
+            """
+            self.session.begin_nested()
+            self._insert_default_fallback()
+
+            with self._gen_test_client() as client:
+                response = client.get("/", query_string={
+                    "fallback": "ddg",
+                    "query": "cats are animals right?"
+                })
+                self.assertEqual(302, response.status_code)
+                self.assertEqual("https://duckduckgo.com?q=cats%20are%20animals%20right%3F", response.location)
+
             self.session.rollback()
-
-        def test_gen_default_fallback_without_default_fallback(self):
-            """Test that IndexRoute._gen_default_fallback raises an HTTPException
-            with status code 500 when no default fallback exists in database.
-            """
-            try:
-                IndexRoute._gen_default_fallback(self.app.dbm)
-            except HTTPException as http_exc:
-                self.assertIsInstance(http_exc, HTTPException)
-                self.assertEqual(500, http_exc.code)
-
-        def test_gen_destination_from_alias_is_destination(self):
-            """Test that IndexRoute._gen_destination_from_alias returns
-            (the correct) Destination record."""
-            destination = IndexRoute._gen_destination_from_alias(self.app.dbm, "reddit")
-            self.assertIsInstance(destination, db.Destination)
-            self.assertEqual("https://www.reddit.com/r/{}", destination.url)
-
-        def test_gen_destination_from_alias_invalid_alias(self):
-            """Test that IndexRoute._gen_destination_from_alias raises HTTPException
-            with status code 400 for invalid alias.
-            """
-            try:
-                IndexRoute._gen_destination_from_alias(self.app.dbm, "twitter")
-            except HTTPException as http_exc:
-                self.assertIsInstance(http_exc, HTTPException)
-                self.assertEqual(400, http_exc.code)
 
         def tearDown(self):
             self.session.close()
