@@ -7,7 +7,11 @@
         <meta name="description" content="Hare Smart Shortcut Directory">
         <meta name="author" content="Conveen">
         <title>Hare Smart Shortcut Directory</title>
-        <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+        <link rel="search"
+              type="application/opensearchdescription+xml"
+              title="Hare"
+              href="{{ url_for('static', filename='opensearch.xml') }}" />
+        <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}"/>
         <link rel="stylesheet"
               href="{{ url_for('static', filename='css/bootstrap.min.css') }}"
               integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk"/>

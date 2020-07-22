@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/">
+  <ShortName>Hare</ShortName>
+  <Description>Hare: Smart Shortcut Engine</Description>
+  <InputEncoding>UTF-8</InputEncoding>
+  <Image height="16" width="16">DEPLOYMENT_URL</Image>
+  <Url type="text/html" method="GET" template="DEPLOYMENT_URL">
+    <Param name="query" value="{searchTerms}"/>
+    <Param name="fallback" value="DEFAULT_SEARCH_ENGINE"/>
+  </Url>
+</OpenSearchDescription>
