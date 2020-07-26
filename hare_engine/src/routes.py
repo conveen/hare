@@ -106,7 +106,7 @@ class IndexRoute(BaseRoute):
     def _resolve_destination_for_query(cls,
                                        dbm: DBManager,
                                        alias: Optional[str],
-                                       fallback_alias: Optional[str]) -> db.Destination:
+                                       fallback_alias: Optional[str]) -> Tuple[db.Destination, bool]:
         """
         Args:
             alias           => destination alias, or first destination parameter if no alias provided
@@ -125,17 +125,20 @@ class IndexRoute(BaseRoute):
             HTTPException: if db.gen_default_fallback throws ValueError, as default fallback must exist in DB
         """
         destination = None
+        as_fallback = False
         if alias:
             destination = db.gen_destination_for_alias(dbm, alias)
         if not destination and fallback_alias:
             destination = db.gen_destination_for_alias(dbm, fallback_alias)
+            as_fallback = True
         if not destination:
             try:
-                return db.gen_default_fallback(dbm)
+                destination = db.gen_default_fallback(dbm)
+                as_fallback = True
             except ValueError:
                 # See: db.gen_default_fallback
                 flask.abort(500)
-        return destination
+        return (destination, as_fallback)
 
     @classmethod
     def get(cls,
@@ -153,13 +156,13 @@ class IndexRoute(BaseRoute):
         # Resolve destination for provided alias and fallback
         if alias == "list":
             return flask.redirect(flask.url_for("list_destinations"))
-        destination = cls._resolve_destination_for_query(app.dbm, alias, fallback_alias)
+        destination, as_fallback = cls._resolve_destination_for_query(app.dbm, alias, fallback_alias)
 
         # If destination doesn't take arguments, redirect immediately
         if destination.num_args == 0:
             return flask.redirect(destination.url)
         # If destination is fallback, combine all arguments (including parsed alias) into single
-        if destination.is_fallback:
+        if as_fallback:
             arguments.insert(0, alias)
             arguments = [" ".join(arguments)]
         # Otherwise, validate number of arguments against destination
