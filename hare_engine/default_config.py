@@ -1,5 +1,5 @@
 ## -*- coding: UTF8 -*-
-## config.py
+## default_config.py
 ##
 ## Copyright (c) 2020 conveen
 ##
@@ -28,7 +28,7 @@ __author__ = "conveen"
 
 
 # Default database connection URL is SQLite database in local directory
-HARE_DATABASE_URI = "sqlite:///{}".format(Path
+HARE_DATABASE_URL = "sqlite:///{}".format(Path
                                           .cwd()
                                           .joinpath("hare_engine")
                                           .joinpath("hare.db")
@@ -41,8 +41,8 @@ HARE_DATABASE_BOOTSTRAP_ON_STARTUP = True
 # NOTE: This file should _never_ be checked in to source control, and should be
 #       fetched from secret manager or encrypted file in production environments
 # See: https://flask.palletsprojects.com/en/1.1.x/quickstart/#sessions
-HARE_SECRET_KEY_PATH = str(Path
-                           .cwd()
-                           .joinpath("hare_engine")
-                           .joinpath(".app_secret.key")
-                           .absolute())
+SECRET_KEY_PATH = str(Path
+                      .cwd()
+                      .joinpath("hare_engine")
+                      .joinpath(".app_secret.key")
+                      .absolute())
