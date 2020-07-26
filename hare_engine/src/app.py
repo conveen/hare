@@ -22,7 +22,6 @@
 
 import os
 from pathlib import Path
-from typing import Dict
 
 import flask
 from lc_sqlalchemy_dbutils.manager import DBManager
@@ -183,4 +182,4 @@ if os.environ.get("ENVIRONMENT") == "TEST":
 
         def tearDown(self):
             if not self.have_secret_key_file:
-                Path(default_config.HARE_SECRET_KEY_PATH).unlink()
+                Path(default_config.SECRET_KEY_PATH).unlink()
