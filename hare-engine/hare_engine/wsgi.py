@@ -26,6 +26,6 @@ __author__ = "conveen"
 
 
 # Add hare_engine directory to path
-sys.path.insert(0, Path(__file__).parent.parent.resolve())
+sys.path.insert(0, str(Path(__file__).parent.parent.resolve()))  # pylint: disable=wrong-import-position
 from hare_engine.app import gen_app
 app = gen_app()

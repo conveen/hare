@@ -24,22 +24,23 @@ from pathlib import Path
 __author__ = "conveen"
 
 
-# Default database connection URL is SQLite database in local directory
-HARE_DATABASE_URL = "sqlite:///{}".format(Path
-                                          .cwd()
-                                          .joinpath("hare_engine")
-                                          .joinpath("hare.db")
-                                          .absolute())
-
-# Attempt to create all tables in database on application startup
-HARE_DATABASE_BOOTSTRAP_ON_STARTUP = True
-
-# Default application secret key path is ".app_secret.key" in local directory
+# Default application secret key path is .app_secret.key in hare_engine directory.
 # NOTE: This file should _never_ be checked in to source control, and should be
-#       fetched from secret manager or encrypted file in production environments
+#       fetched from secret manager or env variables in production environments.
 # See: https://flask.palletsprojects.com/en/1.1.x/quickstart/#sessions
-SECRET_KEY_PATH = str(Path
-                      .cwd()
-                      .joinpath("hare_engine")
-                      .joinpath(".app_secret.key")
-                      .absolute())
+try:
+    SECRET_KEY = (Path(__file__)
+                  .with_name(".app_secret.key")
+                  .read_text())
+except FileNotFoundError:
+    SECRET_KEY = ""
+
+CONFIG = {
+    # Default database connection URL is SQLite database in hare-engine directory
+    "HARE_DATABASE_URL": (Path(__file__)
+                          .parent
+                          .joinpath("hare.db")
+                          .resolve()),
+    "HARE_DATABASE_BOOTSTRAP_ON_STARTUP": True,
+    "HARE_SECRET_KEY": SECRET_KEY,
+}

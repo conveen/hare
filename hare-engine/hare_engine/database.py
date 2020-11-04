@@ -18,7 +18,6 @@
 ## OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ## SOFTWARE.
 
-import os
 from string import Formatter
 from typing import List, Optional
 from urllib.parse import quote_plus, urlsplit, urlunsplit

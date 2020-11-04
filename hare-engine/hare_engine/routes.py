@@ -20,7 +20,6 @@
 # pylint: disable=W0702
 
 from collections import defaultdict
-import os
 from typing import Any, Callable, ClassVar, DefaultDict, Dict, List, Optional, Tuple, Type
 from urllib.parse import quote_plus
 

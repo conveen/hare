@@ -18,6 +18,7 @@
 ## LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 ## OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ## SOFTWARE.
+# pylint: disable=line-too-long,wrong-import-position
 
 from argparse import ArgumentParser, Namespace
 import logging
@@ -99,7 +100,7 @@ def bootstrap(args: Namespace) -> int:
             logger.info("Successfully added destination to database")
         except Exception as exc:
             if isinstance(exc, ValueError):
-                logger.warning("Arguments failed validation ({})".format(value_exc))
+                logger.warning("Arguments failed validation ({})".format(exc))
             else:
                 logger.warning("Failed to add destination to database ({})".format(exc))
     return 0
