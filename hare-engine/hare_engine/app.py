@@ -1,5 +1,3 @@
-## -*- coding: UTF8 -*-
-## app.py
 ## Copyright (c) 2020 conveen
 ##
 ## Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -26,8 +24,8 @@ from pathlib import Path
 import flask
 from lc_sqlalchemy_dbutils.manager import DBManager
 
-import hare_engine.src.database as db
-from hare_engine.src.routes import RouteRegistry
+import hare_engine.database as db
+from hare_engine.routes import RouteRegistry
 
 
 def _gen_and_validate_config() -> flask.Config:

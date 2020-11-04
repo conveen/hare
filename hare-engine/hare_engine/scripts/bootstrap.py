@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-## -*- coding: UTF8 -*-
-## bootstrap.py
 ## Copyright (c) 2020 conveen
 ##
 ## Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,10 +28,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.absolute()))
 
 from lc_sqlalchemy_dbutils.manager import DBManager
 
-import hare_engine.src.database as db
+import hare_engine.database as db
 
 
 __author__ = "conveen"
+__version__ = "0.1.0"
 logger = logging.getLogger(__name__)
 
 
@@ -109,6 +108,7 @@ def bootstrap(args: Namespace) -> int:
 def gen_command_parser() -> ArgumentParser:
     parser = ArgumentParser(description=("Bootstrap Hare database with common destinations like "
                                          "Google, DuckDuckGo, Wikipedia, etc."))
+    parser.add_argument("-V", "--version", action="version", version="%(prog)s {}".format(__version__))
     parser.add_argument("connection_url", help="Database connection URL")
     parser.add_argument("-g",
                         "--google",

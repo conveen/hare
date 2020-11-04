@@ -1,6 +1,3 @@
-## -*- coding: UTF8 -*-
-## __init__.py
-##
 ## Copyright (c) 2020 conveen
 ##
 ## Permission is hereby granted, free of charge, to any person obtaining a copy

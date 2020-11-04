@@ -1,5 +1,3 @@
-## -*- coding: UTF8 -*-
-## routes.py
 ## Copyright (c) 2020 conveen
 ##
 ## Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -36,7 +34,7 @@ from lc_flask_routes import (
 )
 from lc_sqlalchemy_dbutils.manager import DBManager
 
-import hare_engine.src.database as db
+import hare_engine.database as db
 
 
 __author__ = "conveen"

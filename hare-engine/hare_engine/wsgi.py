@@ -1,6 +1,3 @@
-## -*- coding: UTF8 -*-
-## default_config.py
-##
 ## Copyright (c) 2020 conveen
 ##
 ## Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -22,27 +19,13 @@
 ## SOFTWARE.
 
 from pathlib import Path
+import sys
 
 
 __author__ = "conveen"
 
 
-# Default database connection URL is SQLite database in local directory
-HARE_DATABASE_URL = "sqlite:///{}".format(Path
-                                          .cwd()
-                                          .joinpath("hare_engine")
-                                          .joinpath("hare.db")
-                                          .absolute())
-
-# Attempt to create all tables in database on application startup
-HARE_DATABASE_BOOTSTRAP_ON_STARTUP = True
-
-# Default application secret key path is ".app_secret.key" in local directory
-# NOTE: This file should _never_ be checked in to source control, and should be
-#       fetched from secret manager or encrypted file in production environments
-# See: https://flask.palletsprojects.com/en/1.1.x/quickstart/#sessions
-SECRET_KEY_PATH = str(Path
-                      .cwd()
-                      .joinpath("hare_engine")
-                      .joinpath(".app_secret.key")
-                      .absolute())
+# Add hare_engine directory to path
+sys.path.insert(0, Path(__file__).parent.parent.resolve())
+from hare_engine.app import gen_app
+app = gen_app()

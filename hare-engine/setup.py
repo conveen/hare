@@ -1,6 +1,3 @@
-## -*- coding: UTF8 -*-
-## setup.py
-##
 ## Copyright (c) 2020 conveen
 ##
 ## Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -25,6 +22,8 @@
 import os
 import setuptools
 
+from hare_engine import __version__
+
 if os.path.isfile("README.md"):
     with open("README.md", "r") as readme:
         long_description = readme.read()
@@ -34,7 +33,7 @@ else:
 
 setuptools.setup(
     name="hare_engine",
-    version="PACKAGE_VERSION",
+    version=__version__,
     author="conveen",
     author_email="conveen@protonmail.com",
     description="Hare: Smart Shortcut Engine",
@@ -47,7 +46,7 @@ setuptools.setup(
     },
     packages=setuptools.find_packages(include=["hare_engine", "hare_engine.*"]),
     package_data={
-        "hare_engine.src": [
+        "hare_engine": [
             "static/*.ico",
             "templates/*.html",
             "static/js/*.js",

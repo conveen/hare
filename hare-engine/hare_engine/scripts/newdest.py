@@ -30,10 +30,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.absolute()))
 
 from lc_sqlalchemy_dbutils.manager import DBManager
 
-import hare_engine.src.database as db
+import hare_engine.database as db
 
 
 __author__ = "conveen"
+__version__ = "0.1.0"
 logger = logging.getLogger(__name__)
 
 
@@ -77,6 +78,7 @@ def newdest(args: Namespace) -> int:
 def gen_command_parser() -> ArgumentParser:
     """Generate command line parser."""
     parser = ArgumentParser(description="Add new destination with alias(es) to database")
+    parser.add_argument("-V", "--version", action="version", version="%(prog)s {}".format(__version__))
     parser.add_argument("connection_url", help="Database connection URL")
     parser.add_argument("destination_url", help="Destination URL")
     parser.add_argument("description", help="Destination description")

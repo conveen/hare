@@ -1,6 +1,3 @@
-#!/usr/bin/env sh
-## remove-dev-files.sh
-##
 ## Copyright (c) 2020 conveen
 ##
 ## Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -21,30 +18,5 @@
 ## OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ## SOFTWARE.
 
-for FILENAME in "pylintrc" "requirements-dev.txt"
-do
-    if [ -f $FILENAME ]
-    then
-        echo "::: INFO: Removing $FILENAME"
-        git rm $FILENAME
-    fi
-done 
 
-for DIRECTORY in "__pycache__" ".mypy_cache" "build" "\.egg-info" "tests"
-do
-    if [ "${DIRECTORY}" == "tests" ] && [ -d "${DIRECTORY}" ]
-    then
-        echo "::: INFO: Removing ${DIRECTORY}"
-        git rm -r "${DIRECTORY}"
-    else
-        find . -iregex ".*${DIRECTORY}.*" \! -iregex '.*venv.*' -type d | \
-            while read DIRECTORY_PATH
-            do
-                echo "::: INFO: Removing ${DIRECTORY_PATH}"
-                rm -rf "${DIRECTORY_PATH}"
-            done
-    fi
-done
-
-echo "::: INFO: Removing scripts directory"
-git rm -rf scripts
+__author__ = "conveen"
