@@ -22,20 +22,14 @@
 ## SOFTWARE.
 
 
-if [ $# -lt 1 ]
-then
-    echo "::: ERROR: Must supply at least one file to run tests on"
-    exit 1
-fi
-
 if [ ! -d "venv" ]
 then
     echo "::: ERROR: Virtual environment does not exist"
     exit 1
 fi
 
-source venv/bin/activate
+. venv/bin/activate
 
-ENVIRONMENT=TEST python -m unittest "${@}"
+ENVIRONMENT=TEST python -m unittest discover -p '*.py' tests
 
 deactivate

@@ -35,7 +35,7 @@ then
 fi
 
 echo "::: INFO: Entering virtual environment"
-source venv/bin/activate
+. venv/bin/activate
 
 echo "::: INFO: Running Pylint" && \
     pylint --rcfile=pylintrc "${@}" && \
