@@ -18,12 +18,8 @@
 ## OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ## SOFTWARE.
 
-import os
-from pathlib import Path
 import unittest
 from unittest import mock
-
-import flask
 
 from hare_engine.app import gen_app
 from hare_engine.default_config import CONFIG as DEFAULT_FILE_CONFIG
@@ -55,7 +51,9 @@ class TestConfiguration(unittest.TestCase):
     def test_env_variables(self):
         database_url = "mysql://scott:tiger@localhost/foo"
         secret_key = "Env variable secret key"
-        with TempEnviron(HARE_DATABASE_URL=database_url, HARE_DATABASE_BOOTSTRAP_ON_STARTUP="True", HARE_SECRET_KEY=secret_key), \
+        with TempEnviron(HARE_DATABASE_URL=database_url,
+                         HARE_DATABASE_BOOTSTRAP_ON_STARTUP="True",
+                         HARE_SECRET_KEY=secret_key), \
             mock.patch("hare_engine.app.DBManager.connect"), \
             mock.patch("hare_engine.app.DBManager.bootstrap_db"):
             app = gen_app()
@@ -70,7 +68,8 @@ class TestConfiguration(unittest.TestCase):
             mock.patch("hare_engine.app.DBManager.bootstrap_db"):
             app = gen_app()
             self.assertEqual(database_url, app.config["HARE_DATABASE_URL"])
-            self.assertEqual(DEFAULT_FILE_CONFIG["HARE_DATABASE_BOOTSTRAP_ON_STARTUP"], app.config["HARE_DATABASE_BOOTSTRAP_ON_STARTUP"])
+            self.assertEqual(DEFAULT_FILE_CONFIG["HARE_DATABASE_BOOTSTRAP_ON_STARTUP"],
+                             app.config["HARE_DATABASE_BOOTSTRAP_ON_STARTUP"])
             self.assertEqual(DEFAULT_FILE_CONFIG["HARE_SECRET_KEY"], app.config["SECRET_KEY"])
 
     def test_invalid_config(self):
