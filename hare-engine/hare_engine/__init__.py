@@ -20,3 +20,4 @@
 
 
 __author__ = "conveen"
+__version__ = "0.1.0"

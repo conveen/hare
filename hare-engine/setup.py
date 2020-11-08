@@ -57,7 +57,7 @@ setuptools.setup(
         "Flask>=1.1",
         "lc-flask-routes[all]",
         "lc-sqlalchemy-dbutils",
-        "SQLAlchemy>=1."
+        "SQLAlchemy==1.3"
     ],
     entry_points={"console_scripts": [
         "hare-bootstrap=hare_engine.scripts.bootstrap:main",
