@@ -62,7 +62,7 @@ def gen_app() -> flask.Flask:
             raise ValueError("must provide {} in config or env variable".format(option))
     app.config["HARE_DATABASE_URL"] = config["HARE_DATABASE_URL"]
     app.config["SECRET_KEY"] = config["HARE_SECRET_KEY"]
-    app.config["HARE_DATABASE_BOOTSTRAP_ON_STARTUP"] = config.get("HARE_DATABASE_BOOTSTRAP_ON_STARTUP", False)
+    app.config["HARE_DATABASE_BOOTSTRAP_ON_STARTUP"] = "HARE_DATABASE_BOOTSTRAP_ON_STARTUP" in config
     app.config["JSON_AS_ASCII"] = False
     app.config["JSON_SORT_KEYS"] = False
 

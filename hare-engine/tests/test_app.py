@@ -20,13 +20,15 @@
 
 import os
 from pathlib import Path
-from tempfile import gettempdir
 import unittest
+from unittest import mock
 
 import flask
 
-from hare_engine.app import _gen_and_validate_config
-from hare_engine import default_config
+from hare_engine.app import gen_app
+from hare_engine.default_config import CONFIG as DEFAULT_FILE_CONFIG
+from tests.common import TempEnviron
+from tests.custom_config_valid import CONFIG as CUSTOM_VALID_CONFIG
 
 
 __author__ = "conveen"
@@ -35,62 +37,42 @@ __author__ = "conveen"
 class TestConfiguration(unittest.TestCase):
     """Tests for _gen_and_validate_config."""
 
-    @staticmethod
-    def _gen_flask_app():
-        return flask.Flask(__name__)
-
-    def setUp(self):
-        self.have_secret_key_file = True
-        if not Path(default_config.SECRET_KEY_PATH).is_file():
-            self.have_secret_key_file = False
-            with open(default_config.SECRET_KEY_PATH, "w") as scf:
-                scf.write("THIS IS A FAKE SECRET KEY")
-
-    def test_load_default_config(self):
-        """Test that default config file is loaded when no custom config file
-        or env vars are provided.
-        """
-        app = self._gen_flask_app()
-        app.config.from_mapping(_gen_and_validate_config())
+    def test_default_config(self):
+        app = gen_app()
         for option in ("HARE_DATABASE_URL", "HARE_DATABASE_BOOTSTRAP_ON_STARTUP"):
-            self.assertEqual(getattr(default_config, option), app.config.get(option))
-        with open(default_config.SECRET_KEY_PATH) as scf:
-            expected = scf.read()
-        self.assertEqual(expected, app.config.get("SECRET_KEY"))
+            self.assertEqual(DEFAULT_FILE_CONFIG[option], app.config[option])
+        self.assertEqual(DEFAULT_FILE_CONFIG["HARE_SECRET_KEY"], app.config["SECRET_KEY"])
 
-    def test_load_custom_config(self):
-        """Test that custom config file is loaded from HARE_CONFIG_PATH."""
-        # Create temporary copy of default config
-        config_file_path = Path(gettempdir()).joinpath("config.py")
-        # Change HARE_DATABASE_URL to new value
-        with open(config_file_path, "w") as config_file:
-            config_file.write("HARE_DATABASE_URL = \"sqlite:///hare.db\"\n")
-            config_file.write("SECRET_KEY = \"THIS IS A SECRET\"\n")
-        os.environ["HARE_CONFIG_PATH"] = str(config_file_path)
+    def test_custom_valid_config(self):
+        with TempEnviron(HARE_CONFIG_MODULE="tests.custom_config_valid"), \
+            mock.patch("hare_engine.app.DBManager.connect"), \
+            mock.patch("hare_engine.app.DBManager.bootstrap_db"):
+            app = gen_app()
+            self.assertEqual(CUSTOM_VALID_CONFIG["HARE_DATABASE_URL"], app.config["HARE_DATABASE_URL"])
+            self.assertEqual(False, app.config["HARE_DATABASE_BOOTSTRAP_ON_STARTUP"])
+            self.assertEqual(CUSTOM_VALID_CONFIG["HARE_SECRET_KEY"], app.config["SECRET_KEY"])
 
-        try:
-            app = self._gen_flask_app()
-            app.config.from_mapping(_gen_and_validate_config())
-            self.assertEqual("sqlite:///hare.db", app.config.get("HARE_DATABASE_URL"))
-            self.assertEqual("THIS IS A SECRET", app.config.get("SECRET_KEY"))
-        finally:
-            Path(config_file_path).unlink()
-            del os.environ["HARE_CONFIG_PATH"]
+    def test_env_variables(self):
+        database_url = "mysql://scott:tiger@localhost/foo"
+        secret_key = "Env variable secret key"
+        with TempEnviron(HARE_DATABASE_URL=database_url, HARE_DATABASE_BOOTSTRAP_ON_STARTUP="True", HARE_SECRET_KEY=secret_key), \
+            mock.patch("hare_engine.app.DBManager.connect"), \
+            mock.patch("hare_engine.app.DBManager.bootstrap_db"):
+            app = gen_app()
+            self.assertEqual(database_url, app.config["HARE_DATABASE_URL"])
+            self.assertEqual(True, app.config["HARE_DATABASE_BOOTSTRAP_ON_STARTUP"])
+            self.assertEqual(secret_key, app.config["SECRET_KEY"])
 
-    def test_load_config_envvar_override(self):
-        """Test that environment variables override default config options."""
-        os.environ["HARE_DATABASE_URL"] = "sqlite:///hare.db"
-        os.environ["SECRET_KEY"] = "THIS IS A FAKE SECRET"
+    def test_default_config_with_env_override(self):
+        database_url = "postgres://scott:tiger@localhost/foo"
+        with TempEnviron(HARE_DATABASE_URL=database_url), \
+            mock.patch("hare_engine.app.DBManager.connect"), \
+            mock.patch("hare_engine.app.DBManager.bootstrap_db"):
+            app = gen_app()
+            self.assertEqual(database_url, app.config["HARE_DATABASE_URL"])
+            self.assertEqual(DEFAULT_FILE_CONFIG["HARE_DATABASE_BOOTSTRAP_ON_STARTUP"], app.config["HARE_DATABASE_BOOTSTRAP_ON_STARTUP"])
+            self.assertEqual(DEFAULT_FILE_CONFIG["HARE_SECRET_KEY"], app.config["SECRET_KEY"])
 
-        try:
-            app = self._gen_flask_app()
-            app.config.from_mapping(_gen_and_validate_config())
-            self.assertEqual("sqlite:///hare.db", app.config.get("HARE_DATABASE_URL"))
-            self.assertEqual("THIS IS A FAKE SECRET", app.config.get("SECRET_KEY"))
-        finally:
-            del os.environ["HARE_DATABASE_URL"]
-            del os.environ["SECRET_KEY"]
-
-    def tearDown(self):
-        if not self.have_secret_key_file:
-            Path(default_config.SECRET_KEY_PATH).unlink()
+    def test_invalid_config(self):
+        with TempEnviron(HARE_CONFIG_MODULE="tests.custom_config_invalid"):
+            self.assertRaises(ModuleNotFoundError, gen_app)

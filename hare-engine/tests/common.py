@@ -18,29 +18,26 @@
 ## OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ## SOFTWARE.
 
-from pathlib import Path
+import os
+from typing import Any
 
 
 __author__ = "conveen"
 
 
-# Default application secret key path is .app_secret.key in hare_engine directory.
-# NOTE: This file should _never_ be checked in to source control, and should be
-#       fetched from secret manager or env variables in production environments.
-# See: https://flask.palletsprojects.com/en/1.1.x/quickstart/#sessions
-try:
-    SECRET_KEY = (Path(__file__)
-                  .with_name(".app_secret.key")
-                  .read_text())
-except FileNotFoundError:
-    SECRET_KEY = ""
+class TempEnviron:
+    """Context manager to temporarily set env variables."""
+    __slots__ = ("_env_variables",)
 
-CONFIG = {
-    # Default database connection URL is SQLite database in hare-engine directory
-    "HARE_DATABASE_URL": "sqlite:///{}".format(Path(__file__)
-                                               .parent
-                                               .joinpath("hare.db")
-                                               .resolve()),
-    "HARE_DATABASE_BOOTSTRAP_ON_STARTUP": True,
-    "HARE_SECRET_KEY": SECRET_KEY,
-}
+    def __init__(self, **kwargs) -> None:
+        self._env_variables = kwargs
+
+    def __enter__(self) -> "TempEnviron":
+        for key, value in self._env_variables.items():
+            os.environ[key] = value
+        return self
+
+    def __exit__(self, _: Any, __: Any, ___: Any) -> None:
+        for key in self._env_variables:
+            if key in os.environ:
+                del os.environ[key]
