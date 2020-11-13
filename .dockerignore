@@ -10,6 +10,6 @@
 **/*pylintrc
 **/*venv
 **/*tests
-**/*scripts
+**/scripts/*.sh
 **/*.key
 **/*.db
