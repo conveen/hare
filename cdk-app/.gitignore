@@ -1,0 +1,19 @@
+# Compiled Python files
+*__pycache__
+
+# Python virtual environment and setup files
+.venv
+*.egg-info
+
+# Vim swap files
+*.swp
+*.swo
+
+# CDK files
+package-lock.json
+cdk.context.json
+.cdk.staging
+cdk.out
+
+# Deployment config files
+*config.json
