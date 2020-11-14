@@ -17,6 +17,7 @@ COPY hare-engine/deploy/wsgi/hare_engine.ini .
 COPY hare-engine/deploy/entrypoint.sh .
 COPY hare-engine/setup.py .
 COPY hare-engine/hare_engine hare_engine
+COPY hare-engine/deploy/opensearch/opensearch.xml.template hare_engine/static/
 
 RUN python3 -m venv venv && \
     . venv/bin/activate && \
