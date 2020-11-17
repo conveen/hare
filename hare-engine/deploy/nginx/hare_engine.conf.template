@@ -8,6 +8,8 @@ upstream hare_engine {
 server {
     listen ${PORT};
     charset utf-8;
+    access_log off;
+    error_log off;
 
     location = favicon.ico {
         alias /var/www/hare/hare_engine/static/favicon.ico;
