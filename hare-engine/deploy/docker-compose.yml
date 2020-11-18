@@ -33,7 +33,7 @@ services:
     depends_on:
       - postgres-01
   hare-engine:
-    image: hare-engine:${TAG:-latest}
+    image: conveen/hare-engine:${TAG:-latest}
     container_name: hare-engine
     build:
       context: ../../
