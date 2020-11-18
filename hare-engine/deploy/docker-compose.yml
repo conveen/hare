@@ -1,0 +1,54 @@
+version: "3"
+
+networks:
+  hare:
+    driver: ${NETWORK:-bridge}
+
+volumes:
+  postgres-data-01:
+
+services:
+  postgres-01:
+    image: postgres:12
+    container_name: postgres-01
+    environment:
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+    volumes:
+      - postgres-data-01:/var/lib/postgresql/data
+    networks:
+      hare:
+        aliases:
+          - postgres-01
+  pgweb-01:
+    image: sosedoff/pgweb:latest
+    container_name: pgweb-01
+    environment:
+      DATABASE_URL: "postgres://postgres:${POSTGRES_PASSWORD}@postgres-01:5432/hare?sslmode=disable"
+    ports:
+      - ${PGWEB_PORT:-8081}:8081
+    networks:
+      hare:
+        aliases:
+          - pgweb-01
+    depends_on:
+      - postgres-01
+  hare-engine:
+    image: hare-engine:${TAG:-latest}
+    container_name: hare-engine
+    build:
+      context: ../../
+      dockerfile: hare-engine/deploy/Dockerfile
+    environment:
+      # NOTE: This must be changed in production
+      HARE_SECRET_KEY: "${HARE_SECRET_KEY:-test secret key}"
+      HARE_DATABASE_BOOTSTRAP_ON_STARTUP: "true"
+      HARE_DATABASE_DRIVER: "psycopg2-binary"
+      HARE_DATABASE_URL: "postgres://postgres:${POSTGRES_PASSWORD}@postgres-01:5432/hare"
+    ports:
+      - ${HARE_PORT:-8080}:80
+    networks:
+      hare:
+        aliases:
+          - hare-engine
+    depends_on:
+      - postgres-01
