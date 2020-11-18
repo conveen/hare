@@ -145,7 +145,7 @@ $ ./hare-engine/hare_engine/scripts/bootstrap.py <database_url>
 3. Enter the following information:
     * `Search engine`: Hare
     * `Keyword`: hare
-    * `URL with %s in place of query`: http(s)://<hare_domain_name>:<port>?query=%s&fallback=g
+    * `URL with %s in place of query`: http(s)://\<hare\_domain\_name\>:\<port\>?query=%s&fallback=g
         * Note that the fallback parameter could be any search engine, like DuckDuckGo, Wikipedia, Bing, etc.
 
 ### Firefox (via OpenSearch)
