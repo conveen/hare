@@ -133,9 +133,7 @@ such as DuckDuckGo, Google, Bing, Wikipedia, Reddit, Twitter, Facebook, Youtube,
 To run the script, simply point it at the database using an [RFC-1738](http://rfc.net/rfc1738.html)-compliant URL:
 
 ```bash
-$ cd hare_engine
-$ . venv/bin/activate
-$ ./hare_engine/scripts/bootstrap.py <database_url>
+$ ./hare-engine/hare_engine/scripts/bootstrap.py <database_url>
 ```
 
 ## Installing Hare in the Browser
