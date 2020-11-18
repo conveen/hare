@@ -26,8 +26,7 @@ RUN python3 -m venv venv && \
     deactivate
 
 RUN chmod +x entrypoint.sh && \
-    mkdir /var/log/hare && \
-    chown -R www-data:www-data /var/www/hare /var/log/hare
+    chown -R www-data:www-data /var/www/hare
 
 ENV PORT=80
 
