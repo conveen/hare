@@ -44,6 +44,8 @@ services:
       HARE_DATABASE_BOOTSTRAP_ON_STARTUP: "true"
       HARE_DATABASE_DRIVER: "psycopg2-binary"
       HARE_DATABASE_URL: "postgres://postgres:${POSTGRES_PASSWORD}@postgres-01:5432/hare"
+      HARE_DOMAIN:
+      DEFAULT_SEARCH_ENGINE:
     ports:
       - ${HARE_PORT:-8080}:80
     networks:
