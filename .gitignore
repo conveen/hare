@@ -1,0 +1,25 @@
+# .DS_Store files for Apple devices
+**/.DS_Store
+
+# Python compiled files
+**/__pycache__
+
+# Mypy cache
+**/.mypy_cache
+
+# Ignore log files
+**/*.log
+
+# Ignore database files
+**/*.db
+
+# Vim swap files
+**/*.swp
+**/*.swo
+
+# Python virtual environment
+.venv
+
+# Coverage files
+.coverage
+htmlcov
