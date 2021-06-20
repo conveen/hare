@@ -49,7 +49,7 @@ def _prepend_comments_to_lines(content: str, num_symbols: typing.Optional[int] =
     return "\n".join(f"{prepend_str}{line}" for line in content.splitlines())
 
 
-def GlobPattern(arg: str) -> typing.Generator[Path, None, None]:
+def GlobPattern(arg: str) -> typing.Generator[Path, None, None]:    # pylint: disable=invalid-name
     """Take a glob pattern and return a generator of matching paths."""
     return BASE_DIR.glob(arg)
 
@@ -81,11 +81,12 @@ class Command(command.BaseCommand):
 
     def handle(self, *args, **options) -> None:
         license_path: Path = options["license_path"]
+        license_path = license_path.resolve()
         source_paths: typing.Generator[Path, None, None] = options["source_paths"]
         update_header: bool = options["update_header"]
 
         if not license_path.is_file():
-            logger.error("LICENSE file path does not exist or is not a file ({})".format(license_path))
+            logger.error("LICENSE file path does not exist or is not a file ({})", license_path)
             return
 
         license_content = _prepend_comments_to_lines(license_path.read_text())
@@ -94,7 +95,7 @@ class Command(command.BaseCommand):
 
         for source_path in source_paths:
             if not source_path.is_file():
-                logger.warning("{} either does not exist or is not file, skipping".format(source_path))
+                logger.warning("{} either does not exist or is not file, skipping", source_path)
                 continue
 
             source_content = source_path.read_text()
@@ -102,6 +103,10 @@ class Command(command.BaseCommand):
 
             if (not update_header and (not source_content or source_first_line != license_first_line)) or update_header:
                 if update_header:
+                    logger.info("Updating license header in {}", source_path)
                     source_content = source_content[license_length:]
+                else:
+                    logger.info("Adding license header to {}", source_path)
+
                 with source_path.open("w") as source_file:
                     source_file.write(f"{license_content}{source_content}")
