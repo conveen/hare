@@ -286,10 +286,14 @@ python-versions = ">=3.6"
 docs = ["sphinx", "jaraco.packaging (>=8.2)", "rst.linker (>=1.9)"]
 testing = ["pytest (>=4.6)", "pytest-checkdocs (>=1.2.3)", "pytest-flake8", "pytest-cov", "pytest-enabler", "jaraco.itertools", "func-timeout", "pytest-black (>=0.3.7)", "pytest-mypy"]
 
+[extras]
+postgres = []
+postgresb = []
+
 [metadata]
 lock-version = "1.1"
 python-versions = ">= 3.6, < 3.10"
-content-hash = "c33a8a07303403f183c37a6d0ff5d8cb100736d49eb1986821369c071f88c958"
+content-hash = "96d213c5f6e49f9fd90cb314aeb979e162631465c33a7818ef4b71046d4215d4"
 
 [metadata.files]
 appdirs = [
