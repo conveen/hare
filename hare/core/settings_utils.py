@@ -22,9 +22,69 @@
 
 import logging
 from os import environ as ENV
+from pathlib import Path
 import typing
 
+from django.core.exceptions import ImproperlyConfigured
+
 from hare.core import logging_utils
+
+
+ENV_VAR_PREFIX = "HARE"
+# Only support SQLite3 and Postgres (with Psycopg2 driver)
+SUPPORTED_DATABASES = {
+    "sqlite3": "django.db.backends.sqlite3",
+    "postgres": "django.db.backends.postgres",
+}
+
+
+def gen_allowed_hosts_setting() -> typing.List[str]:
+    """ALLOWED_HOSTS setting."""
+    allowed_hosts = ENV.get(f"{ENV_VAR_PREFIX}_ALLOWED_HOSTS")
+    if not allowed_hosts:
+        return []
+
+    return [host for host in allowed_hosts.split(",") if host]
+
+
+def gen_databases_setting(base_dir: Path) -> typing.Dict[str, str]:
+    """DATABASES setting."""
+    sqlite3_engine = SUPPORTED_DATABASES["sqlite3"]
+    postgres_engine = SUPPORTED_DATABASES["postgres"]
+    engine = ENV.get(f"{ENV_VAR_PREFIX}_DB_ENGINE", sqlite3_engine)
+
+    if engine == sqlite3_engine:
+        name = ENV.get(f"{ENV_VAR_PREFIX}_DB_NAME", str(base_dir.joinpath("hare.db")))
+        return {"ENGINE": engine, "NAME": name}
+
+    if engine != postgres_engine:
+        raise ImproperlyConfigured(f"Unsupported database engine {engine}")
+
+    name = ENV.get(f"{ENV_VAR_PREFIX}_DB_NAME", "hare")
+    port = ENV.get(f"{ENV_VAR_PREFIX}_DB_PORT", "5432")
+    host = ENV.get(f"{ENV_VAR_PREFIX}_DB_HOST")
+    if not host:
+        raise ImproperlyConfigured("Must supply database host")
+    user = ENV.get(f"{ENV_VAR_PREFIX}_DB_USER")
+    if not user:
+        raise ImproperlyConfigured("Must supply database user")
+    password = ENV.get(f"{ENV_VAR_PREFIX}_DB_PASSWORD")
+    if not password:
+        raise ImproperlyConfigured("Must supply database password")
+    return {
+        "ENGINE": engine,
+        "NAME": name,
+        "HOST": host,
+        "PORT": port,
+        "USER": user,
+        "PASSWORD": password,
+    }
+
+
+def gen_debug_setting() -> bool:
+    """DEBUG setting."""
+    environment = ENV.get(f"{ENV_VAR_PREFIX}_ENV", "development")
+    return False if environment == "production" else True
 
 
 def gen_logging_setting(debug: bool) -> typing.Dict[str, typing.Any]:
@@ -57,7 +117,7 @@ def gen_logging_setting(debug: bool) -> typing.Dict[str, typing.Any]:
         "loggers": {
             "hare": {
                 "handlers": ["console"],
-                "level": "DEBUG" if debug else ENV.get("HARE_LOG_LEVEL", "INFO"),
+                "level": "DEBUG" if debug else ENV.get(f"{ENV_VAR_PREFIX}_LOG_LEVEL", "INFO"),
                 "propogate": True,
             },
         },
