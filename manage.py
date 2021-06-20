@@ -7,7 +7,7 @@ import sys
 
 def main():
     """Run administrative tasks."""
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'hare.settings')
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'hare.core.settings')
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:
@@ -16,8 +16,6 @@ def main():
             "available on your PYTHONPATH environment variable? Did you "
             "forget to activate a virtual environment?"
         ) from exc
-    # enables placement of apps within the hare directory
-    sys.path.append(str(Path(__file__).joinpath("hare")))
 
     execute_from_command_line(sys.argv)
 
