@@ -19,15 +19,15 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 packages = [
-    { include = "engine_api", from = "hare" },
-    { include = "hare", from = "hare" },
-    { include = "engine_ui", from = "hare" },
+    { include = "hare/api" },
+    { include = "hare/core" },
+    { include = "hare/ui" },
 ]
 include = [
-    "hare/engine_ui/static/engine_ui/*.ico",
-    "hare/engine_ui/static/engine_ui/**/*.js",
-    "hare/engine_ui/static/engine_ui/**/*.css",
-    "hare/engine_ui/templates/engine_ui/**/*.html",
+    "hare/ui/static/ui/*.ico",
+    "hare/ui/static/ui/**/*.js",
+    "hare/ui/static/ui/**/*.css",
+    "hare/ui/templates/ui/**/*.html",
 ]
 
 [tool.poetry.dependencies]
