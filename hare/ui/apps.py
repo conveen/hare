@@ -24,5 +24,5 @@ from django.apps import AppConfig
 
 
 class EngineUiConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'ui'
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "ui"
