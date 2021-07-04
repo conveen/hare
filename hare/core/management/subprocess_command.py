@@ -27,7 +27,6 @@ import typing
 from django.core.management import base as command
 
 from hare.core.management.utils import GlobPattern
-from hare.core.settings import BASE_DIR
 
 
 class SubprocessCommand(command.BaseCommand):
@@ -55,7 +54,7 @@ class SubprocessCommand(command.BaseCommand):
         **subprocess_kwargs,
     ) -> None:
         """Run program with arguments and source paths."""
-        subprocess.run([self.program] + command_extra_args + source_paths, **subprocess_kwargs)
+        subprocess.run([self.program] + command_extra_args + source_paths, check=True, **subprocess_kwargs)
 
     def handle(self, *args, **options) -> None:
         if not self.program:

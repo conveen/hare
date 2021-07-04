@@ -84,7 +84,7 @@ def gen_databases_setting(base_dir: Path) -> typing.Dict[str, str]:
 def gen_debug_setting() -> bool:
     """DEBUG setting."""
     environment = ENV.get(f"{ENV_VAR_PREFIX}_ENV", "development")
-    return False if environment == "production" else True
+    return environment != "production"
 
 
 def gen_logging_setting(debug: bool) -> typing.Dict[str, typing.Any]:

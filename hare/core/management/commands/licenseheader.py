@@ -20,6 +20,7 @@
 ## OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ## SOFTWARE.
 
+import logging
 from pathlib import Path
 import typing
 
@@ -27,7 +28,6 @@ from django.core.management import base as command
 
 from hare.core.management.utils import GlobPattern
 from hare.core.settings import BASE_DIR
-import logging
 
 
 logger = logging.getLogger(__name__)
