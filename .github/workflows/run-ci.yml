@@ -1,0 +1,46 @@
+name: Continuous Integration
+
+on:
+    pull_request:
+        branches:
+            - master
+            - "releases/**"
+            - django-rewrite
+    push:
+        branches:
+            - master
+            - "releases/**"
+            - django-rewrite
+
+jobs:
+    ci:
+        name: Continuous Integration
+        strategy:
+            matrix:
+                os: [ubuntu-latest]
+                python-version: python-version: ["3.6", "3.7"]
+        runs-on: ${{ matrix.os }}
+        steps:
+            - name: Checkout source
+              uses: actions/checkout@v2
+            - name: Setup Python ${{ matrix.python-version }}
+              with:
+                  python-version: ${{ matrix.python-version }}
+            - name: Setup Poetry
+              env:
+                  POETRY_VERSION: 1.1.6
+              run: |
+                  curl -sL https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py | \
+                  python - -y
+            - name: Configure Poetry
+              run: poetry config virtualenvs.in-project true
+            - name: Install project with Poetry
+              run: poetry install
+            - name: Run Pylint
+              run: poetry run python manage.py run_pylint
+            - name: Run MyPy
+              run: poetry run python manage.py run_mypy
+            - name: Run Black
+              run: poetry run python manage.py run_black -- --check
+            - name: Run tests
+              run: poetry run python manage.py test
