@@ -25,6 +25,7 @@ import typing
 
 from django.core.management import base as command
 
+from hare.core.management.utils import GlobPattern
 from hare.core.settings import BASE_DIR
 import logging
 
@@ -47,11 +48,6 @@ def _prepend_comments_to_lines(content: str, num_symbols: typing.Optional[int] =
     """Generate new string with one or more hashtags prepended to each line."""
     prepend_str = f"{'#' * num_symbols} "
     return "\n".join(f"{prepend_str}{line}" for line in content.splitlines())
-
-
-def GlobPattern(arg: str) -> typing.Generator[Path, None, None]:    # pylint: disable=invalid-name
-    """Take a glob pattern and return a generator of matching paths."""
-    return BASE_DIR.glob(arg)
 
 
 class Command(command.BaseCommand):
