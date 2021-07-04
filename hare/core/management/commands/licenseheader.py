@@ -44,7 +44,7 @@ def _extract_first_from_str(content: str) -> str:
     return content[:newline_pos]
 
 
-def _prepend_comments_to_lines(content: str, num_symbols: typing.Optional[int] = 2) -> str:
+def _prepend_comments_to_lines(content: str, num_symbols: int = 2) -> str:
     """Generate new string with one or more hashtags prepended to each line."""
     prepend_str = f"{'#' * num_symbols} "
     return "\n".join(f"{prepend_str}{line}" for line in content.splitlines())

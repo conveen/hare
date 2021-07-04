@@ -20,6 +20,7 @@
 ## OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ## SOFTWARE.
 
+import logging
 from pathlib import Path
 import subprocess
 import typing
@@ -27,6 +28,9 @@ import typing
 from django.core.management import base as command
 
 from hare.core.management.utils import GlobPattern
+
+
+logger = logging.getLogger(__name__)
 
 
 class SubprocessCommand(command.BaseCommand):
@@ -64,4 +68,7 @@ class SubprocessCommand(command.BaseCommand):
         source_paths_gen: typing.Generator[Path, None, None] = options["source_paths"]
         source_paths: typing.List[str] = [f"{source_path}" for source_path in source_paths_gen]
 
-        self.run_subprocess(command_extra_args, source_paths)
+        try:
+            self.run_subprocess(command_extra_args, source_paths)
+        except subprocess.CalledProcessError as exc:
+            logger.error("Failed to run {} (exited with code {})", self.program, exc.returncode)
