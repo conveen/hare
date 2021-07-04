@@ -37,7 +37,9 @@ confidence=
 # --disable=W".
 disable=C0102,
     C0111,
-    C0330
+    C0330,
+    E1205,  # Pylint doesn't understand format string log messages enabled in logging_utils
+    R0801,  # Don't need Pylint to detect duplicate code, false positives on overriden functions
 
 
 [REPORTS]
