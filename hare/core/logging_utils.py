@@ -27,7 +27,7 @@ from typing import Any, Mapping, Tuple, Union
 class LogRecord(logging.LogRecord):
     """Extends base LogRecord implementation to allow for format-style strings."""
 
-    def __init__(   # pylint: disable=too-many-arguments
+    def __init__(  # pylint: disable=too-many-arguments
         self,
         name: str,
         level: int,
