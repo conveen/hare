@@ -20,6 +20,7 @@
 ## OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ## SOFTWARE.
 
+import logging
 from string import Formatter
 import typing
 from urllib.parse import urlsplit, urlunsplit
@@ -28,9 +29,158 @@ from django.core.validators import URLValidator
 from django.db import models
 
 
+logger = logging.getLogger(__name__)
+
+
 ########################
 ##### Database API #####
 ########################
+
+
+def _validate_netloc_url(url: str) -> str:
+    """Validate URL according to RFC 1808.
+
+    URL must be valid according to the RFC 1808 specification _and_
+    point to a network location with the ``http`` or `https`` scheme.
+    See https://datatracker.ietf.org/doc/html/rfc1808 for more information.
+    If no scheme provided, will default to ``http`` (like most browsers).
+
+    Raises:
+        ValueError: if URL is invalid, or
+                    if URL doesn't point to network location or
+                    if URL uses a non-http(s) scheme.
+    """
+    # Ensure URL is valid netloc url according to RFC 1808
+    # See: https://tools.ietf.org/html/rfc1808.html
+    try:
+        scheme, netloc, path, query, fragment = urlsplit(url)
+    except ValueError as exc:
+        raise ValueError(f"Invalid URL ({exc})") from exc
+    # URL must point to network location (website)
+    if not netloc:
+        raise ValueError("URL must point to website")
+    # If no scheme is provided, will default to http
+    if not scheme:
+        scheme = "http"
+        url = urlunsplit(
+            (
+                scheme,
+                netloc,
+                path,
+                query,
+                fragment,
+            )
+        )
+    elif scheme not in {"http", "https"}:
+        raise ValueError(f"Invalid scheme {scheme}")
+    return url
+
+
+def _gen_num_args_from_url(url: str) -> int:
+    """Parse number of position arguments from URL format string.
+
+    Uses the built-in ``string.Formatter`` class to parse the number of
+    positional arguments. Does not support keyword arguments.
+
+    Raises:
+        ValueError: if URL contains keyword arguments.
+    """
+    format_args = list(Formatter().parse(url))
+    # If only one entry and field_name is None, then doesn't have any format args
+    # Each entry in format_args is 4-tuple with (iteral_text, field_name, format_spec, conversion)
+    # See: https://docs.python.org/3.8/library/string.html#string.Formatter.parse
+    if len(format_args) == 1 and format_args[0][1] is None:
+        num_args = 0
+    else:
+        num_args = len(format_args)
+        for _, field_name, __, ___ in format_args:
+            if field_name:
+                raise ValueError('must not have keyword arguments ("{}")'.format(field_name))
+    return num_args
+
+
+class DestinationManager(models.Manager):
+    """Destination objects manager."""
+
+    def clear_default_fallbacks(self) -> None:
+        """Remove the ``is_default_fallback`` flag (set to ``False``) for all destinations."""
+        self.filter(is_default_fallback=True).update(is_default_fallback=False)
+
+    def add_with_aliases(
+        self,
+        url: str,
+        description: str,
+        aliases: typing.List[str],
+        is_fallback: bool = False,
+        is_default_fallback: bool = False,
+    ) -> "Destination":
+        """Add destination with one or more aliases.
+
+        Arguments must pass the following validation steps:
+            * One or more aliases
+            * URL must be valid according to the RFC 1808 specification and use the ``http`` or ``https`` schemes
+            * URL must only contain positional formatting arguments, not keyword arguments
+            * If the URl is a (default) fallback destination it must accept exactly one argument
+
+        If the URL is a default fallback destination and one or more exist already,
+        this function will remove the ``is_default_fallback`` flag on the existing
+        destinations and set it for the new one.
+
+        Raises:
+            ValueError: if the URL is invalid (see: ``_validate_netloc_url``) or
+                        if the URL contains keyword format arguments (see: ``_gen_num_args_from_url``) or
+                        if the URL is a (default) fallback destination and doesn't have exactly one argument.
+        """
+        if not aliases:
+            raise ValueError("Must provide one or more aliases")
+
+        url = _validate_netloc_url(url)
+        num_args = _gen_num_args_from_url(url)
+
+        if is_default_fallback:
+            is_fallback = True
+            # Clear all existing default fallbacks so new destination is the only one
+            self.clear_default_fallbacks()
+        if is_fallback and num_args != 1:
+            raise ValueError("Fallback destinations must have exactly one argument")
+
+        destination = self.create(
+            url=url,
+            num_args=num_args,
+            is_fallback=is_fallback,
+            is_default_fallback=is_default_fallback,
+            description=description,
+        )
+        Alias.objects.bulk_create([Alias(name=name, destination=destination) for name in aliases])
+        return destination
+
+    def default_fallback(self) -> "Destination":
+        """Get default fallback destination.
+
+        A default fallback destination must exist in the database.
+        If not, it's considered a database error. In the case multiple
+        destinations are marked as default fallbacks, this function will
+        get the first one returned in the query set.
+
+        Raises:
+            Destination.DoesNotExist: if no default fallback destination found.
+        """
+        default_fallback = self.filter(is_default_fallback=True).first()
+        if not default_fallback:
+            raise Destination.DoesNotExist()
+
+        return default_fallback
+
+    def from_alias(self, alias: str) -> typing.Optional["Destination"]:
+        """Resolve destination for ``alias``, if it exists."""
+        try:
+            return self.filter(alias__name=alias).get()
+        except Destination.DoesNotExist:
+            return None
+        except Destination.MultipleObjectsReturned:
+            logger.warning("Multiple destinations returned for alias {}", alias)
+            return None
+
 
 ######################################
 ##### Database Schema Definition #####
@@ -55,6 +205,8 @@ class Destination(models.Model):
     is_fallback = models.BooleanField(db_index=True)
     is_default_fallback = models.BooleanField(db_index=True, default=False)
     description = models.TextField()
+
+    objects = DestinationManager()
 
     class Meta:
         db_table = "destination"
