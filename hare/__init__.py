@@ -20,6 +20,6 @@
 ## OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ## SOFTWARE.
 
-import hare.api as api
-import hare.core as core
-import hare.ui as ui
+from hare import api
+from hare import core
+from hare import ui
