@@ -21,8 +21,10 @@
 ## SOFTWARE.
 # pylint: disable=protected-access
 
+import typing
 import unittest
 
+from django.db import IntegrityError, transaction
 import django.test as django_unittest
 
 from hare.core import models
@@ -30,10 +32,14 @@ from hare.core.tests_utils import run_test_units, TestUnit
 
 
 class TestDestinationManagerUtils(unittest.TestCase):
-    """Test DestinationManager util functions."""
+    """Tests for DestinationManager util functions
+    _validate_netloc_url and _gen_num_args_from_url.
+    """
 
     def test_validate_netloc_url(self) -> None:
-        """Tests for _validate_netloc_url."""
+        """Tests for ``_validate_netloc_url``.
+        See: ``hare.core.models._validate_netloc_url`` for valid URL requirements.
+        """
         tests = [
             TestUnit("not_url", ValueError, models._validate_netloc_url, "This is not a URL", assertion="assertRaises"),
             TestUnit(
@@ -111,3 +117,206 @@ class TestDestinationManagerUtils(unittest.TestCase):
         ]
 
         run_test_units(self, tests)
+
+    def test_gen_num_args_from_url(self) -> None:
+        """Test that ``_gen_num_args_from_url`` parses the correct
+        number of *positional* arguments from format strings.
+
+        Technically ``_gen_num_args_from_url`` can parse non-URL strings,
+        but it is only used after a call to ``_validate_netloc_url``
+        and thus only URL data are tested here.
+        """
+        tests = [
+            TestUnit(
+                "no_arguments_with_scheme",
+                0,
+                models._gen_num_args_from_url("https//en.wikipedia.org/w/index.php"),
+            ),
+            TestUnit(
+                "no_arguments_without_scheme",
+                0,
+                models._gen_num_args_from_url("//en.wikipedia.org/w/index.php"),
+            ),
+            TestUnit(
+                "single_positional_argument_in_path_with_scheme",
+                1,
+                models._gen_num_args_from_url("https://www.reddit.com/r/{}"),
+            ),
+            TestUnit(
+                "single_positional_argument_in_path_without_scheme",
+                1,
+                models._gen_num_args_from_url("//www.reddit.com/r/{}"),
+            ),
+            TestUnit(
+                "single_positional_argument_in_query_with_scheme",
+                1,
+                models._gen_num_args_from_url("https://www.shodan.io/search?query={}"),
+            ),
+            TestUnit(
+                "single_positional_argument_in_query_without_scheme",
+                1,
+                models._gen_num_args_from_url("//www.shodan.io/search?query={}"),
+            ),
+            TestUnit(
+                "two_positional_arguments_in_path",
+                2,
+                models._gen_num_args_from_url("https://time.is/{}#{}"),
+            ),
+            TestUnit(
+                "ten_positional_arguments_in_path",
+                10,
+                models._gen_num_args_from_url("https://time.is/{}#{}?query={}{}{}{}{}{}{}{}"),
+            ),
+            TestUnit(
+                "single_keyword_argument",
+                ValueError,
+                models._gen_num_args_from_url,
+                "https://en.wikipedia.org/w/index.php?search={search}",
+                assertion="assertRaises",
+            ),
+            TestUnit(
+                "two_keyword_arguments",
+                ValueError,
+                models._gen_num_args_from_url,
+                "https://en.wikipedia.org/w/index.php?search={search}&title={title}",
+                assertion="assertRaises",
+            ),
+            TestUnit(
+                "single_keyword_argument_one_positional",
+                ValueError,
+                models._gen_num_args_from_url,
+                "https://en.wikipedia.org/w/index.php?search={search}&title={}",
+                assertion="assertRaises",
+            ),
+        ]
+
+        run_test_units(self, tests)
+
+
+class TestDestinationManager(django_unittest.TestCase):
+    """Tests for the database API implemented in ``DestinationManager``."""
+
+    def setUp(self) -> None:
+        self.destinations: typing.Dict[str, models.Destination] = {}
+
+        for url, description, aliases, is_fallback, is_default_fallback in (
+            ("https://www.reddit.com/r/{}", "Reddit", ["r", "reddit"], False, False),
+            ("https://en.wikipedia.org/w/index.php?search={}", "Wikipedia", ["wp", "wikipedia"], False, False),
+            ("https://google.com/search/?q={}", "Google", ["g", "google"], True, False),
+            ("https://duckduckgo.com/?q={}", "DuckDuckGo", ["ddg", "duckduckgo"], True, True),
+        ):
+            destination = models.Destination.objects.create(
+                url=url,
+                num_args=1,
+                is_fallback=is_fallback,
+                is_default_fallback=is_default_fallback,
+            )
+            models.Alias.objects.bulk_create([models.Alias(name=name, destination=destination) for name in aliases])
+            self.destinations[description] = destination
+
+    def test_clear_default_fallbacks(self) -> None:
+        """Test that ``DestinationManager.clear_default_fallbacks``
+        removes existing default fallback destinations.
+        """
+        models.Destination.objects.clear_default_fallbacks()
+        self.assertEqual(
+            0,
+            len(models.Destination.objects.filter(is_default_fallback=True).all()),
+        )
+
+        # Set all destinations as default fallbacks then clear them all
+        models.Destination.objects.update(is_default_fallback=True)
+        models.Destination.objects.clear_default_fallbacks()
+        self.assertEqual(
+            0,
+            len(models.Destination.objects.filter(is_default_fallback=True).all()),
+        )
+
+    def test_create_with_aliases_no_aliases(self) -> None:
+        """Test that ``DestinationManager.create_with_aliases`` raises a
+        ``ValueError`` when no aliases are provided.
+        """
+        for aliases in ([], [""], ["", ""], ["", "", ""]):
+            with self.subTest(test_name=f"{len(aliases)}_empty_aliases"):
+                self.assertRaises(
+                    ValueError,
+                    models.Destination.objects.create_with_aliases,
+                    "https://www.youtube.com/results?search_query={}",
+                    "Youtube",
+                    aliases,
+                    False,
+                    False,
+                )
+
+    def test_create_with_aliases_duplicate_aliases(self) -> None:
+        """Test that ``DestinationManager.create_with_aliases`` dedupes
+        aliases before insertion into the database.
+        """
+        youtube = models.Destination.objects.create_with_aliases(
+            "https://www.youtube.com/results?search_query={}",
+            "Youtube",
+            ["youtube", "youtube"],
+            False,
+            False,
+        )
+        aliases = [alias.name for alias in youtube.aliases.all()]
+        self.assertEqual(["youtube"], aliases)
+
+        kaggle = models.Destination.objects.create_with_aliases(
+            "https://www.kaggle.com/search?q={}",
+            "Kaggle",
+            ["kgl", "kaggle", "kgl"],
+            False,
+            False,
+        )
+        aliases = [alias.name for alias in kaggle.aliases.all()]
+        self.assertEqual(["kgl", "kaggle"], aliases)
+
+    def test_default_fallback_single_destination(self) -> None:
+        """Test that ``DestinationManager.default_fallback`` returns the
+        correct destination when there's only one default fallback.
+        """
+        self.assertEqual(self.destinations["DuckDuckGo"], models.Destination.objects.default_fallback())
+
+    def test_default_fallback_multiple_destinations(self) -> None:
+        """Test that ``DestinationManager.default_fallback`` returns the
+        destination with the lowest ``id`` when there are multiple default fallbacks.
+        """
+        bing = models.Destination.objects.create(
+            url="https://www.bing.com/search?q={}",
+            num_args=1,
+            description="Bing",
+            is_fallback=True,
+            is_default_fallback=True,
+        )
+        models.Alias.objects.create(name="bing", destination=bing)
+
+        self.assertEqual(self.destinations["DuckDuckGo"], models.Destination.objects.default_fallback())
+
+        self.destinations["DuckDuckGo"].is_default_fallback = False
+        self.destinations["DuckDuckGo"].save()
+        self.assertEqual(bing, models.Destination.objects.default_fallback())
+
+    def test_default_fallback_not_exist(self) -> None:
+        """Test that ``DestinationManager.default_fallback`` raises
+        ``Destination.DoesNotExist`` error when there are no default fallbacks.
+        """
+        self.destinations["DuckDuckGo"].is_default_fallback = False
+        self.destinations["DuckDuckGo"].save()
+        self.assertRaises(models.Destination.DoesNotExist, models.Destination.objects.default_fallback)
+
+    def test_from_alias_correct_destination(self) -> None:
+        """Test that ``DestinationManager.from_alias`` returns the correct
+        destination by alias.
+        """
+        for description, alias in (("Reddit", "r"), ("Wikipedia", "wp"), ("Google", "g"), ("DuckDuckGo", "ddg")):
+            self.assertEqual(self.destinations[description], models.Destination.objects.from_alias(alias))
+
+    def test_from_alias_invalid_alias(self) -> None:
+        """Test that ``DestinationManager.from_alias`` returns ``None`` for nonexistent aliases."""
+        self.assertIsNone(models.Destination.objects.from_alias("ddd"))
+
+        # Remove existing Destination then try to retrieve by alias
+        # Requires ON DELETE CASCADE to be enabled for aliases
+        models.Destination.objects.filter(id=self.destinations["Reddit"].id).delete()
+        self.assertIsNone(models.Destination.objects.from_alias("r"))
