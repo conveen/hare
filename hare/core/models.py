@@ -25,7 +25,7 @@ from string import Formatter
 import typing
 from urllib.parse import urlsplit, urlunsplit
 
-from django.core.validators import URLValidator
+from django.core.validators import MinLengthValidator, URLValidator
 from django.db import models
 
 
@@ -106,7 +106,7 @@ class DestinationManager(models.Manager):
         """Remove the ``is_default_fallback`` flag (set to ``False``) for all destinations."""
         self.filter(is_default_fallback=True).update(is_default_fallback=False)
 
-    def add_with_aliases(
+    def create_with_aliases(
         self,
         url: str,
         description: str,
@@ -117,7 +117,7 @@ class DestinationManager(models.Manager):
         """Add destination with one or more aliases.
 
         Arguments must pass the following validation steps:
-            * One or more aliases
+            * One or more unique aliases
             * URL must be valid according to the RFC 1808 specification and use the ``http`` or ``https`` schemes
             * URL must only contain positional formatting arguments, not keyword arguments
             * If the URl is a (default) fallback destination it must accept exactly one argument
@@ -131,8 +131,9 @@ class DestinationManager(models.Manager):
                         if the URL contains keyword format arguments (see: ``_gen_num_args_from_url``) or
                         if the URL is a (default) fallback destination and doesn't have exactly one argument.
         """
-        if not aliases:
-            raise ValueError("Must provide one or more aliases")
+        unique_aliases = {name for name in aliases if name}
+        if not unique_aliases:
+            raise ValueError("Must provide one or more non-empty aliases")
 
         url = _validate_netloc_url(url)
         num_args = _gen_num_args_from_url(url)
@@ -151,7 +152,7 @@ class DestinationManager(models.Manager):
             is_default_fallback=is_default_fallback,
             description=description,
         )
-        Alias.objects.bulk_create([Alias(name=name, destination=destination) for name in aliases])
+        Alias.objects.bulk_create([Alias(name=name, destination=destination) for name in unique_aliases])
         return destination
 
     def default_fallback(self) -> "Destination":
@@ -172,14 +173,19 @@ class DestinationManager(models.Manager):
         return default_fallback
 
     def from_alias(self, alias: str) -> typing.Optional["Destination"]:
-        """Resolve destination for ``alias``, if it exists."""
+        """Resolve destination for ``alias``, if it exists.
+
+        Raises:
+            Destination.MultipleObjectsReturned: if multiple destinations returned for an alias
+                                                 (which should be impossible)
+        """
         try:
             return self.filter(alias__name=alias).get()
         except Destination.DoesNotExist:
             return None
         except Destination.MultipleObjectsReturned:
             logger.warning("Multiple destinations returned for alias {}", alias)
-            return None
+            raise
 
 
 ######################################
