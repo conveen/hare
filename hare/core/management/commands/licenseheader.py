@@ -27,7 +27,7 @@ import typing
 from django.core.management import base as command
 
 from hare.core.management.utils import GlobPattern
-from hare.core.settings import BASE_DIR
+from hare.conf.settings import BASE_DIR
 
 
 logger = logging.getLogger(__name__)

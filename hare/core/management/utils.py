@@ -23,7 +23,7 @@
 from pathlib import Path
 import typing
 
-from hare.core.settings import BASE_DIR
+from hare.conf.settings import BASE_DIR
 
 
 def GlobPattern(arg: str) -> typing.Generator[Path, None, None]:  # pylint: disable=invalid-name

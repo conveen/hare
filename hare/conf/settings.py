@@ -35,7 +35,7 @@ https://docs.djangoproject.com/en/3.2/ref/settings/
 from os import environ as ENV
 from pathlib import Path
 
-from hare.core import settings_utils
+from hare.conf import settings_utils
 
 
 # Build paths inside the project like this: BASE_DIR / "subdir".
@@ -77,7 +77,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = "hare.core.urls"
+ROOT_URLCONF = "hare.conf.urls"
 
 TEMPLATES = [
     {
@@ -95,7 +95,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "hare.core.wsgi.application"
+WSGI_APPLICATION = "hare.conf.wsgi.application"
 
 
 # Database

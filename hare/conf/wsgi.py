@@ -20,27 +20,19 @@
 ## OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ## SOFTWARE.
 
-import typing
+"""
+WSGI config for hare project.
 
-from hare.core.management.subprocess_command import SubprocessCommand
-from hare.conf.settings import BASE_DIR
+It exposes the WSGI callable as a module-level variable named ``application``.
 
+For more information on this file, see
+https://docs.djangoproject.com/en/3.2/howto/deployment/wsgi/
+"""
 
-class Command(SubprocessCommand):
-    help = "Run Pylint code linter."
-    program = "pylint"
+import os
 
-    def run_subprocess(
-        self,
-        command_extra_args: typing.List[str],
-        source_paths: typing.List[str],
-        **subprocess_kwargs,
-    ) -> None:
-        pylintrc_path = f"{BASE_DIR.parent.joinpath('pylintrc')}"
-        command_extra_args = [
-            "--rcfile",
-            pylintrc_path,
-            "--load-plugins",
-            "pylint_django",
-        ] + command_extra_args
-        super().run_subprocess(command_extra_args, source_paths)
+from django.core.wsgi import get_wsgi_application
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "hare.conf.settings")
+
+application = get_wsgi_application()

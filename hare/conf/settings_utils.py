@@ -27,7 +27,7 @@ import typing
 
 from django.core.exceptions import ImproperlyConfigured
 
-from hare.core import logging_utils
+from hare.conf import logging_utils
 
 
 ENV_VAR_PREFIX = "HARE"
