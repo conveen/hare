@@ -23,6 +23,6 @@
 from django.apps import AppConfig
 
 
-class EngineUiConfig(AppConfig):
+class UiConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "hare.ui"
