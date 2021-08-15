@@ -24,7 +24,6 @@
 import typing
 import unittest
 
-from django.db import IntegrityError, transaction
 import django.test as django_unittest
 
 from hare.core import models
@@ -236,6 +235,7 @@ class TestDestinationManager(django_unittest.TestCase):
         """Test that ``DestinationManager.create_with_aliases`` raises a
         ``ValueError`` when no aliases are provided.
         """
+        aliases_list: typing.Tuple[typing.List[str], ...] = ([], [""], ["", ""], ["", "", ""])
         tests = [
             TestUnit(
                 f"{len(aliases)}_empty_aliases",
@@ -248,7 +248,7 @@ class TestDestinationManager(django_unittest.TestCase):
                 False,
                 assertion="assertRaises",
             )
-            for aliases in ([], [""], ["", ""], ["", "", ""])
+            for aliases in aliases_list
         ]
         run_test_units(self, tests)
 
@@ -263,8 +263,8 @@ class TestDestinationManager(django_unittest.TestCase):
             False,
             False,
         )
-        aliases = [alias.name for alias in youtube.aliases.all()]
-        self.assertEqual(["youtube"], aliases)
+        aliases = {alias.name for alias in youtube.aliases.all()}
+        self.assertEqual({"youtube"}, aliases)
 
         kaggle = models.Destination.objects.create_with_aliases(
             "https://www.kaggle.com/search?q={}",
@@ -290,7 +290,7 @@ class TestDestinationManager(django_unittest.TestCase):
         self.assertTrue(destination.is_fallback)
 
     def test_create_with_aliases_default_fallback_invalid_arguments(self) -> None:
-        """Test that ``DestinationManager.create_with_aliases`` raises a 
+        """Test that ``DestinationManager.create_with_aliases`` raises a
         ValueError and retains the existing default fallback if the new destination
         is a default fallback and the number of arguments isn't exactly one.
         """
@@ -312,13 +312,7 @@ class TestDestinationManager(django_unittest.TestCase):
         url = "https://search.yahoo.com/search?p={}"
         description = "Yahoo Search"
         aliases = ["yh", "yahoo"]
-        destination = models.Destination.objects.create_with_aliases(
-            url,
-            description,
-            aliases,
-            True,
-            False
-        )
+        destination = models.Destination.objects.create_with_aliases(url, description, aliases, True, False)
         self.assertEqual(url, destination.url)
         self.assertEqual(description, destination.description)
         self.assertEqual(set(aliases), {alias.name for alias in destination.aliases.all()})

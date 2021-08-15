@@ -25,7 +25,7 @@ from string import Formatter
 import typing
 from urllib.parse import urlsplit, urlunsplit
 
-from django.core.validators import MinLengthValidator, URLValidator
+from django.core.validators import URLValidator
 from django.db import models, transaction
 
 
@@ -94,7 +94,7 @@ def _gen_num_args_from_url(url: str) -> int:
         for _, field_name, __, ___ in format_args:
             if field_name:
                 raise ValueError('must not have keyword arguments ("{}")'.format(field_name))
-            elif field_name == "":
+            if field_name == "":
                 num_args += 1
     return num_args
 
