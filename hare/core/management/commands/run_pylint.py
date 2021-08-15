@@ -37,5 +37,10 @@ class Command(SubprocessCommand):
         **subprocess_kwargs,
     ) -> None:
         pylintrc_path = f"{BASE_DIR.parent.joinpath('pylintrc')}"
-        command_extra_args = ["--rcfile", pylintrc_path, "--load-plugins", "pylint_django"] + command_extra_args
+        command_extra_args = [
+            "--rcfile",
+            pylintrc_path,
+            "--load-plugins",
+            "pylint_django",
+        ] + command_extra_args
         super().run_subprocess(command_extra_args, source_paths)

@@ -22,7 +22,7 @@
 
 import logging
 
-from django.db import DatabaseError, IntegrityError
+from django.db import DatabaseError
 from django.http import HttpResponse, HttpRequest, JsonResponse
 
 from hare.core import models
