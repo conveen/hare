@@ -47,8 +47,8 @@ class LogRecord(logging.LogRecord):
     def getMessage(self) -> str:
         msg = str(self.msg)
         if self.args:
-            if self.style == "{":
-                msg = msg.format(*self.args)
+            if self.name.startswith("hare") and self.style == "{":
+                    msg = msg.format(*self.args)
             else:
                 msg = msg % self.args
         return msg
