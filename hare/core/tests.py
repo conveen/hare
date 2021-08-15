@@ -160,10 +160,10 @@ class TestDestinationManagerUtils(unittest.TestCase):
             TestUnit(
                 "two_positional_arguments_in_path",
                 2,
-                models._gen_num_args_from_url("https://time.is/{}#{}"),
+                models._gen_num_args_from_url("https://www.worldtimebuddy.com/{}-to-{}-converter"),
             ),
             TestUnit(
-                "ten_positional_arguments_in_path",
+                "ten_positional_arguments_in_path_and_query",
                 10,
                 models._gen_num_args_from_url("https://time.is/{}#{}?query={}{}{}{}{}{}{}{}"),
             ),
@@ -236,17 +236,21 @@ class TestDestinationManager(django_unittest.TestCase):
         """Test that ``DestinationManager.create_with_aliases`` raises a
         ``ValueError`` when no aliases are provided.
         """
-        for aliases in ([], [""], ["", ""], ["", "", ""]):
-            with self.subTest(test_name=f"{len(aliases)}_empty_aliases"):
-                self.assertRaises(
-                    ValueError,
-                    models.Destination.objects.create_with_aliases,
-                    "https://www.youtube.com/results?search_query={}",
-                    "Youtube",
-                    aliases,
-                    False,
-                    False,
-                )
+        tests = [
+            TestUnit(
+                f"{len(aliases)}_empty_aliases",
+                ValueError,
+                models.Destination.objects.create_with_aliases,
+                "https://www.youtube.com/results?search_query={}",
+                "Youtube",
+                aliases,
+                False,
+                False,
+                assertion="assertRaises",
+            )
+            for aliases in ([], [""], ["", ""], ["", "", ""])
+        ]
+        run_test_units(self, tests)
 
     def test_create_with_aliases_duplicate_aliases(self) -> None:
         """Test that ``DestinationManager.create_with_aliases`` dedupes
@@ -269,8 +273,57 @@ class TestDestinationManager(django_unittest.TestCase):
             False,
             False,
         )
-        aliases = [alias.name for alias in kaggle.aliases.all()]
-        self.assertEqual(["kgl", "kaggle"], aliases)
+        aliases = {alias.name for alias in kaggle.aliases.all()}
+        self.assertEqual({"kgl", "kaggle"}, aliases)
+
+    def test_create_with_aliases_default_fallback_set_is_fallback(self) -> None:
+        """Test that ``DestinationManager.create_with_aliases`` sets ``is_fallback``
+        to ``True`` if ``is_default_fallback`` is ``True``.
+        """
+        destination = models.Destination.objects.create_with_aliases(
+            "https://scholar.google.com/scholar?q={}",
+            "Google Scholar",
+            ["gs", "scholar", "googlescholar"],
+            False,
+            True,
+        )
+        self.assertTrue(destination.is_fallback)
+
+    def test_create_with_aliases_default_fallback_invalid_arguments(self) -> None:
+        """Test that ``DestinationManager.create_with_aliases`` raises a 
+        ValueError and retains the existing default fallback if the new destination
+        is a default fallback and the number of arguments isn't exactly one.
+        """
+        self.assertRaises(
+            ValueError,
+            models.Destination.objects.create_with_aliases,
+            "https://www.kaggle.com/search",
+            "Kaggle",
+            ["kgl", "kaggle"],
+            True,
+            True,
+        )
+        self.assertEqual(self.destinations["DuckDuckGo"], models.Destination.objects.default_fallback())
+
+    def test_create_with_aliases(self) -> None:
+        """Test that ``DestinationManager.create_with_aliases`` creates
+        a destination with the provided aliases if all conditions are met.
+        """
+        url = "https://search.yahoo.com/search?p={}"
+        description = "Yahoo Search"
+        aliases = ["yh", "yahoo"]
+        destination = models.Destination.objects.create_with_aliases(
+            url,
+            description,
+            aliases,
+            True,
+            False
+        )
+        self.assertEqual(url, destination.url)
+        self.assertEqual(description, destination.description)
+        self.assertEqual(set(aliases), {alias.name for alias in destination.aliases.all()})
+        self.assertTrue(destination.is_fallback)
+        self.assertFalse(destination.is_default_fallback)
 
     def test_default_fallback_single_destination(self) -> None:
         """Test that ``DestinationManager.default_fallback`` returns the
