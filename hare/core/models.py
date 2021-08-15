@@ -26,7 +26,7 @@ import typing
 from urllib.parse import urlsplit, urlunsplit
 
 from django.core.validators import MinLengthValidator, URLValidator
-from django.db import models
+from django.db import models, transaction
 
 
 logger = logging.getLogger(__name__)
@@ -86,16 +86,16 @@ def _gen_num_args_from_url(url: str) -> int:
         ValueError: if URL contains keyword arguments.
     """
     format_args = list(Formatter().parse(url))
+    num_args = 0
     # If only one entry and field_name is None, then doesn't have any format args
     # Each entry in format_args is 4-tuple with (iteral_text, field_name, format_spec, conversion)
-    # See: https://docs.python.org/3.8/library/string.html#string.Formatter.parse
-    if len(format_args) == 1 and format_args[0][1] is None:
-        num_args = 0
-    else:
-        num_args = len(format_args)
+    # See: https://docs.python.org/3.6/library/string.html#string.Formatter.parse
+    if len(format_args) != 1 or format_args[0][1] is not None:
         for _, field_name, __, ___ in format_args:
             if field_name:
                 raise ValueError('must not have keyword arguments ("{}")'.format(field_name))
+            elif field_name == "":
+                num_args += 1
     return num_args
 
 
@@ -138,12 +138,17 @@ class DestinationManager(models.Manager):
         url = _validate_netloc_url(url)
         num_args = _gen_num_args_from_url(url)
 
-        if is_default_fallback:
-            is_fallback = True
-            # Clear all existing default fallbacks so new destination is the only one
-            self.clear_default_fallbacks()
-        if is_fallback and num_args != 1:
-            raise ValueError("Fallback destinations must have exactly one argument")
+        # Must wrap this block in a transaction so that if the destination is a default fallback
+        # and doesn't have exactly one argument, the transaction will be rolled back and
+        # the existing default fallback will be maintained.
+        # May explore alternative implementations later on to avoid the transaction overhead.
+        with transaction.atomic():
+            if is_default_fallback:
+                is_fallback = True
+                # Clear all existing default fallbacks so new destination is the only one
+                self.clear_default_fallbacks()
+            if is_fallback and num_args != 1:
+                raise ValueError("Fallback destinations must have exactly one argument")
 
         destination = self.create(
             url=url,
