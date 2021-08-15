@@ -24,3 +24,6 @@
 # Coverage files
 .coverage
 htmlcov
+
+# YCM config files
+**/.ycm_extra_conf.py
