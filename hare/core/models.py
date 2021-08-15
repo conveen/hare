@@ -198,6 +198,17 @@ class DestinationManager(models.Manager):
 ######################################
 
 
+class HealthCheck(models.Model):
+    """database_health_check table.
+
+    Used by the health check API endpoint to check the database connection for reads and writes.
+    """
+    check_field = models.BooleanField()
+
+    class Meta:
+        db_table = "database_health_check"
+
+
 class Destination(models.Model):
     """destination table.
 
