@@ -9,43 +9,53 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='Destination',
+            name="Destination",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('url', models.CharField(max_length=2000, unique=True, validators=[django.core.validators.URLValidator()])),
-                ('num_args', models.IntegerField()),
-                ('is_fallback', models.BooleanField(db_index=True)),
-                ('is_default_fallback', models.BooleanField(db_index=True, default=False)),
-                ('description', models.TextField()),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                (
+                    "url",
+                    models.CharField(max_length=2000, unique=True, validators=[django.core.validators.URLValidator()]),
+                ),
+                ("num_args", models.IntegerField()),
+                ("is_fallback", models.BooleanField(db_index=True)),
+                ("is_default_fallback", models.BooleanField(db_index=True, default=False)),
+                ("description", models.TextField()),
             ],
             options={
-                'db_table': 'destination',
+                "db_table": "destination",
             },
         ),
         migrations.CreateModel(
-            name='HealthCheck',
+            name="HealthCheck",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('check_field', models.BooleanField()),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("check_field", models.BooleanField()),
             ],
             options={
-                'db_table': 'database_health_check',
+                "db_table": "database_health_check",
             },
         ),
         migrations.CreateModel(
-            name='Alias',
+            name="Alias",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=100, unique=True)),
-                ('destination', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='aliases', related_query_name='alias', to='core.destination')),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("name", models.CharField(max_length=100, unique=True)),
+                (
+                    "destination",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="aliases",
+                        related_query_name="alias",
+                        to="core.destination",
+                    ),
+                ),
             ],
             options={
-                'db_table': 'alias',
+                "db_table": "alias",
             },
         ),
     ]

@@ -203,6 +203,7 @@ class HealthCheck(models.Model):
 
     Used by the health check API endpoint to check the database connection for reads and writes.
     """
+
     check_field = models.BooleanField()
 
     class Meta:
