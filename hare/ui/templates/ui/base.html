@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="description" content="Hare Smart Shortcut Directory">
+        <meta name="author" content="Conveen">
+        <title>{% block title %}{% endblock %}</title>
+        <link rel="shortcut icon" href="{% static 'ui/favicon.ico' %}"/>
+        <link rel="stylesheet"
+              href="{% static 'ui/css/bootstrap.min.css' %}"
+              integrity="sha384-B0vP5xmATw1+K9KRQjQERJvTumQW0nPEzvF6L/Z6nronJ3oUOFUFpCjEUQouq2+l" />
+        <style>
+            /* Sticky footer styles
+            -------------------------------------------------- */
+            html {
+                position: relative;
+                min-height: 100%;
+            }
+            body {
+                /* Margin bottom by footer height */
+                margin-bottom: 60px;
+            }
+            .footer {
+                position: absolute;
+                bottom: 0;
+                width: 100%;
+                /* Set the fixed height of the footer here */
+                height: 60px;
+                line-height: 60px; /* Vertically center the text there */
+            }
+        </style>
+        {% block header_ext %}{% endblock %}
+    </head>
+    <body>
+        <nav class="navbar navbar-dark justify-content-between" style="background-color: rgba(25,25,25,1);">
+            <a class="navbar-brand" href="{% url 'list-destinations' %}">
+                Hare
+            </a>
+        </nav>
+
+        {% block content %}{% endblock %}
+
+        <footer class="footer navbar-fixed-bottom">
+            <div class="container-fluid">
+                <ul class="nav justify-content-end">
+                    <li class="nav-item">
+                    <span class="text-muted"> &copy; Copyright 2021 by <a target="_blank" href="https://github.com/conveen">Conveen</a>.</span>
+                    </li>
+                </ul>
+            </div>
+        </footer>
+
+        {% block body_ext %}{% endblock %}
+    </body>
+</html>
+
+

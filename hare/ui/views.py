@@ -19,3 +19,27 @@
 ## LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 ## OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ## SOFTWARE.
+
+from django.db.models import QuerySet
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
+from django.views import generic
+from django.urls import reverse
+
+from hare.core import models
+
+
+def index(request: HttpRequest) -> HttpResponse:
+    """Redirect to ``ListDestinations`` endpoint."""
+    return HttpResponseRedirect(reverse("list-destinations"))
+
+
+class ListDestinations(generic.ListView):
+    """List all available destinations with descriptions and aliases."""
+
+    context_object_name = "destinations"
+    http_method_names = ["get"]
+    model = models.Destination
+    template_name = "ui/list-destinations.html"
+
+    def get_queryset(self) -> QuerySet:
+        return models.Destination.objects.only("id", "url", "description").order_by("description")
