@@ -38,9 +38,12 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 
-from hare.core import views
+from hare.core import views as core_views
+from hare.ui import views as ui_views
 
 urlpatterns = [
-    path("health/", views.health_check, name="health-check"),
+    path("", ui_views.index, name="index"),
     path("admin/", admin.site.urls),
+    path("health/", core_views.health_check, name="health-check"),
+    path("list/", ui_views.ListDestinations.as_view(), name="list-destinations"),
 ]
