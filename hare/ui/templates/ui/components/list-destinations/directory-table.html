@@ -1,0 +1,18 @@
+<table id="directory-table" class="table">
+    <thead class="thead-dark">
+        <tr>
+            <th scope="col">Aliases</th>
+            <th scope="col">Description</th>
+            <th scope="col">URL</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for destination in destinations.values %}
+            <tr>
+                <th scope="row">{{ destination.aliases|join:", " }}</th>
+                <td>{{ destination.description }}</td>
+                <td>{{ destination.url }}</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>

@@ -20,12 +20,22 @@
 ## OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ## SOFTWARE.
 
+from collections import OrderedDict
+import logging
+import typing
+
+from django.db import DatabaseError
 from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
+from django.template.response import SimpleTemplateResponse
 from django.views import generic
 from django.urls import reverse
 
 from hare.core import models
+from hare.ui.forms import NewDestinationForm
+
+
+logger = logging.getLogger(__name__)
 
 
 def index(request: HttpRequest) -> HttpResponse:
@@ -33,13 +43,71 @@ def index(request: HttpRequest) -> HttpResponse:
     return HttpResponseRedirect(reverse("list-destinations"))
 
 
-class ListDestinations(generic.ListView):
-    """List all available destinations with descriptions and aliases."""
+class ListDestinations(generic.FormView):
+    """List and add destinations with descriptions and aliases.
 
-    context_object_name = "destinations"
-    http_method_names = ["get"]
-    model = models.Destination
+    The ``GET`` handler lists all available destinations with descriptions and aliases
+    using the ``ui/list-destinations.html`` template.
+
+    The ``POST`` handler adds a new destination with aliases from the form rendered by
+    the ``ui/list-destinations.html`` template. This view handles the ``POST`` request
+    primarily so that Django can do the form validation server-side and pass any errors to
+    the client using Django's Form machinery.
+    Validation of the form is done in three stages:
+        1) ``NewDestinationForm``
+        2) ``models.Destination.objects.create_with_aliases``
+        3) ``models.Destination``
+    See the docstring for ``models.Destination.objects.create_with_aliases`` for more information.
+    Note that setting the default fallback destination is not currently supported via this endpoint.
+    """
+
+    form_class = NewDestinationForm
     template_name = "ui/list-destinations.html"
 
-    def get_queryset(self) -> QuerySet:
-        return models.Destination.objects.only("id", "url", "description").order_by("description")
+    def gen_destinations_with_aliases(self) -> typing.Dict[int, typing.Dict[str, typing.Union[str, typing.List[str]]]]:
+        """Retrieve list of destinations and aliases from database.
+
+        Aliases are aggregated per-destination and sorted in alphabetical order for display.
+        """
+        # OrderedDict + ordering by Destination.description ensures the table is sorted by description in the UI
+        destinations = OrderedDict()
+        try:
+            for alias in models.Alias.objects.select_related("destination").order_by("destination__description").all():
+                if alias.destination.id not in destinations:
+                    destinations[alias.destination.id] = {
+                        "url": alias.destination.url,
+                        "description": alias.destination.description,
+                        "aliases": [alias.name]
+                    }
+                else:
+                    destinations[alias.destination.id]["aliases"].append(alias.name)
+
+            for destination in destinations.values():
+                destination["aliases"] = sorted(destination["aliases"])
+        except DatabaseError as exc:
+            logger.warning("Failed to fetch destinations from database ({})", exc)
+        return destinations
+
+    def get_context_data(self, **kwargs) -> typing.Dict[typing.Any, typing.Any]:
+        context = super().get_context_data(**kwargs)
+        context["destinations"] = self.gen_destinations_with_aliases()
+        return context
+
+    def form_valid(self, form: NewDestinationForm) -> HttpResponse:
+        try:
+            _destination = models.Destination.objects.create_with_aliases(
+                form.cleaned_data["url"],
+                form.cleaned_data["description"],
+                form.cleaned_data["aliases"],
+                form.cleaned_data["is_fallback"],
+                False,
+            )
+        except (DatabaseError, ValueError) as exc:
+            logger.warning(
+                "Failed to create new destination {} with aliases {} ({})",
+                form.cleaned_data["url"],
+                form.cleaned_data["aliases"],
+                exc,
+            )
+        # TODO: Redirect with flash message stating successful/failed addition
+        return HttpResponseRedirect(reverse("list-destinations"))
