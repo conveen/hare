@@ -42,6 +42,7 @@ disable=C0102,
     C0330,
     E1205,  # Pylint doesn't understand format string log messages enabled in logging_utils
     R0801,  # Don't need Pylint to detect duplicate code, false positives on overriden functions
+    W0511   # Don't fail Pylint check with TODO messages
 
 
 [REPORTS]

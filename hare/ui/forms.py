@@ -37,7 +37,7 @@ class DelimitedCharField(forms.CharField):
     All values in the list are kept as ``str``, so the resulting type is ``List[str]``.
     Unless ``keep_empty_values`` is ``True``, empty values are discarded.
     """
-    
+
     def __init__(self, delimiter=",", keep_empty_values=False, **kwargs) -> None:
         super().__init__(**kwargs)
         self.delimiter = delimiter
@@ -70,23 +70,24 @@ class NewDestinationForm(forms.Form):
 
     Intended to be used with ``hare.core.models.Destination.objects.create_with_aliases``.
     """
+
     url = forms.URLField(
         label="URL",
-        help_text="Shortcut URL, such as \"https://duckduckgo.com/?q={}\". Use \"{}\" for parameter placeholders.",
+        help_text='Shortcut URL, such as "https://duckduckgo.com/?q={}". Use "{}" for parameter placeholders.',
         # NOTE: Must be exactly the same as hare.core.models.Destination.url
         max_length=2000,
     )
     description = forms.CharField(
         label="Description",
         help_text=(
-            "Description of the shortcut, such as \"Search DuckDuckGo.\" "
+            'Description of the shortcut, such as "Search DuckDuckGo." '
             "This will help others understand the shortcut URL and parameters."
         ),
     )
     aliases = DelimitedCharField(
-    ## aliases = forms.CharField(
+        ## aliases = forms.CharField(
         label="Aliases",
-        help_text="One or more aliases for the shortcut separated by commas (i.e., \"d,ddg,duckduckgo\").",
+        help_text='One or more aliases for the shortcut separated by commas (i.e., "d,ddg,duckduckgo").',
     )
     is_fallback = forms.BooleanField(
         label="Set as fallback",

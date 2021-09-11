@@ -25,9 +25,7 @@ import logging
 import typing
 
 from django.db import DatabaseError
-from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
-from django.template.response import SimpleTemplateResponse
 from django.views import generic
 from django.urls import reverse
 
@@ -64,20 +62,22 @@ class ListDestinations(generic.FormView):
     form_class = NewDestinationForm
     template_name = "ui/list-destinations.html"
 
-    def gen_destinations_with_aliases(self) -> typing.Dict[int, typing.Dict[str, typing.Union[str, typing.List[str]]]]:
+    def gen_destinations_with_aliases(  # pylint: disable=no-self-use
+        self,
+    ) -> typing.Dict[int, typing.Dict[str, typing.Union[str, typing.List[str]]]]:
         """Retrieve list of destinations and aliases from database.
 
         Aliases are aggregated per-destination and sorted in alphabetical order for display.
         """
         # OrderedDict + ordering by Destination.description ensures the table is sorted by description in the UI
-        destinations = OrderedDict()
+        destinations: typing.Dict[int, typing.Dict[str, typing.Any]] = OrderedDict()
         try:
             for alias in models.Alias.objects.select_related("destination").order_by("destination__description").all():
                 if alias.destination.id not in destinations:
                     destinations[alias.destination.id] = {
                         "url": alias.destination.url,
                         "description": alias.destination.description,
-                        "aliases": [alias.name]
+                        "aliases": [alias.name],
                     }
                 else:
                     destinations[alias.destination.id]["aliases"].append(alias.name)
