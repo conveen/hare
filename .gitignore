@@ -25,5 +25,10 @@
 .coverage
 htmlcov
 
-# YCM config files
+# Code editor configs
+## Intellij
+.idea
+## VSCode
+.vscode
+## YCM config files
 **/.ycm_extra_conf.py
