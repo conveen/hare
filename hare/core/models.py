@@ -21,12 +21,12 @@
 ## SOFTWARE.
 
 import logging
-from string import Formatter
 import typing
-from urllib.parse import urlsplit, urlunsplit
 
 from django.core.validators import URLValidator
 from django.db import models, transaction
+
+from hare.core import models_utils
 
 
 logger = logging.getLogger(__name__)
@@ -35,68 +35,6 @@ logger = logging.getLogger(__name__)
 ########################
 ##### Database API #####
 ########################
-
-
-def _validate_netloc_url(url: str) -> str:
-    """Validate URL according to RFC 1808.
-
-    URL must be valid according to the RFC 1808 specification _and_
-    point to a network location with the ``http`` or `https`` scheme.
-    See https://datatracker.ietf.org/doc/html/rfc1808 for more information.
-    If no scheme provided, will default to ``http`` (like most browsers).
-
-    Raises:
-        ValueError: if URL is invalid, or
-                    if URL doesn't point to network location or
-                    if URL uses a non-http(s) scheme.
-    """
-    # Ensure URL is valid netloc url according to RFC 1808
-    # See: https://tools.ietf.org/html/rfc1808.html
-    try:
-        scheme, netloc, path, query, fragment = urlsplit(url)
-    except ValueError as exc:
-        raise ValueError(f"Invalid URL ({exc})") from exc
-    # URL must point to network location (website)
-    if not netloc:
-        raise ValueError("URL must point to website")
-    # If no scheme is provided, will default to http
-    if not scheme:
-        scheme = "http"
-        url = urlunsplit(
-            (
-                scheme,
-                netloc,
-                path,
-                query,
-                fragment,
-            )
-        )
-    elif scheme not in {"http", "https"}:
-        raise ValueError(f"Invalid scheme {scheme}")
-    return url
-
-
-def _gen_num_args_from_url(url: str) -> int:
-    """Parse number of position arguments from URL format string.
-
-    Uses the built-in ``string.Formatter`` class to parse the number of
-    positional arguments. Does not support keyword arguments.
-
-    Raises:
-        ValueError: if URL contains keyword arguments.
-    """
-    format_args = list(Formatter().parse(url))
-    num_args = 0
-    # If only one entry and field_name is None, then doesn't have any format args
-    # Each entry in format_args is 4-tuple with (iteral_text, field_name, format_spec, conversion)
-    # See: https://docs.python.org/3.6/library/string.html#string.Formatter.parse
-    if len(format_args) != 1 or format_args[0][1] is not None:
-        for _, field_name, __, ___ in format_args:
-            if field_name:
-                raise ValueError('must not have keyword arguments ("{}")'.format(field_name))
-            if field_name == "":
-                num_args += 1
-    return num_args
 
 
 class DestinationManager(models.Manager):
@@ -127,16 +65,16 @@ class DestinationManager(models.Manager):
         destinations and set it for the new one.
 
         Raises:
-            ValueError: if the URL is invalid (see: ``_validate_netloc_url``) or
-                        if the URL contains keyword format arguments (see: ``_gen_num_args_from_url``) or
+            ValueError: if the URL is invalid (see: ``models_utils.validate_netloc_url``) or
+                        if the URL contains keyword format arguments (see: ``models_utils.gen_num_args_from_url``) or
                         if the URL is a (default) fallback destination and doesn't have exactly one argument.
         """
         unique_aliases = {name for name in aliases if name}
         if not unique_aliases:
             raise ValueError("Must provide one or more non-empty aliases")
 
-        url = _validate_netloc_url(url)
-        num_args = _gen_num_args_from_url(url)
+        url = models_utils.validate_netloc_url(url)
+        num_args = models_utils.gen_num_args_from_url(url)
 
         # Must wrap this block in a transaction so that if the destination is a default fallback
         # and doesn't have exactly one argument, the transaction will be rolled back and
@@ -223,11 +161,11 @@ class Destination(models.Model):
     Common choices could be DuckDuckGo, Wikipedia, or Google.
     """
 
-    url = models.CharField(max_length=2000, unique=True, validators=[URLValidator()])
+    url = models.CharField(max_length=2000, default=None, unique=True, validators=[URLValidator()])
     num_args = models.IntegerField()
-    is_fallback = models.BooleanField(db_index=True)
+    is_fallback = models.BooleanField(db_index=True, default=False)
     is_default_fallback = models.BooleanField(db_index=True, default=False)
-    description = models.TextField()
+    description = models.TextField(default=None)
 
     objects = DestinationManager()
 

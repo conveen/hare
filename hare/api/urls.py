@@ -19,3 +19,14 @@
 ## LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 ## OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ## SOFTWARE.
+
+from django.urls import path
+
+from hare.api import views
+
+app_name = "api"
+urlpatterns = [
+    path("shortcut/", views.ListCreateShortcut.as_view(), name="shortcuts"),
+    path("shortcut/<int:pk>/", views.GetUpdateDeleteShortcut.as_view(), name="shortcut"),
+    path("shortcut/<int:pk>/<str:name>/", views.CreateDeleteAlias.as_view(), name="alias"),
+]

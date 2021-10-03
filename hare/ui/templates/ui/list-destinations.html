@@ -1,5 +1,6 @@
 {% extends "ui/components/base.html" %}
 {% load static %}
+{% load hare %}
 
 {% block title %}Hare Smart Shortcut Directory{% endblock %}
 
@@ -25,7 +26,9 @@
     {% include "ui/components/list-destinations/directory-table.html" with destinations=destinations only %}
 
     <!-- Add shortcut modal -->
-    {% include "ui/components/list-destinations/add-shortcut-form.html" with modal_component_id="add-shortcut-modal" form_component_id="add-new-shortcut-form" form=form %}
+    {% include "ui/components/list-destinations/add-shortcut-form.html" with form=form %}
+
+    {% notifications %}
 </div>
 {% endblock %}
 
@@ -71,6 +74,9 @@
         });
 
         {% if form.is_bound %}$("#add-shortcut-modal").modal("show");{% endif %}
+
+        // Show notifications if present
+        {% if messages %}$(".toast").toast("show"){% endif %}
     });
 </script>
 {% endblock %}

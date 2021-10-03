@@ -36,7 +36,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import include, path
 
 from hare.core import views as core_views
 from hare.ui import views as ui_views
@@ -44,6 +44,7 @@ from hare.ui import views as ui_views
 urlpatterns = [
     path("", ui_views.index, name="index"),
     path("admin/", admin.site.urls),
+    path("api/", include("hare.api.urls")),
     path("health/", core_views.health_check, name="health-check"),
     path("list/", ui_views.ListDestinations.as_view(), name="list-destinations"),
 ]
