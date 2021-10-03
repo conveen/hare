@@ -62,13 +62,18 @@ class SubprocessCommand(command.BaseCommand):
 
     def handle(self, *args, **options) -> None:
         if not self.program:
-            raise ValueError("must supply program to run")
+            raise ValueError("Must supply program to run")
 
-        command_extra_args: typing.List[str] = options["command_extra_args"]
-        source_paths_gen: typing.Generator[Path, None, None] = options["source_paths"]
-        source_paths: typing.List[str] = [f"{source_path}" for source_path in source_paths_gen]
+        command_extra_args: typing.List[str] = options.get("command_extra_args", [])
+        if isinstance(options["source_paths"], typing.List):
+            source_paths: typing.List[str] = options["source_paths"]
+        else:
+            source_paths_gen: typing.Generator[Path, None, None] = options["source_paths"]
+            source_paths = [f"{source_path}" for source_path in source_paths_gen]
 
         try:
             self.run_subprocess(command_extra_args, source_paths)
         except subprocess.CalledProcessError as exc:
-            logger.error("Failed to run {} (exited with code {})", self.program, exc.returncode)
+            raise command.CommandError(  # type: ignore
+                f"Failed to run {self.program} ({exc.returncode})", returncode=exc.returncode
+            )
