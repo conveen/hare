@@ -50,6 +50,6 @@ def health_check(request: HttpRequest) -> HttpResponse:
 
         return JsonResponse({"status": "ok"})
     except DatabaseError as exc:
-        logger.error("Health check failed ({})", exc)
+        logger.error("Health check failed", exc_info=exc)
 
         return JsonResponse({"status": "error"}, status=503)

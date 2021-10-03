@@ -25,12 +25,13 @@ import logging
 import typing
 
 from django.db import DatabaseError
+from django.contrib import messages
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.views import generic
 from django.urls import reverse
 
 from hare.core import models
-from hare.ui.forms import NewDestinationForm
+from hare.ui.forms import CreateDestinationForm
 
 
 logger = logging.getLogger(__name__)
@@ -52,27 +53,27 @@ class ListDestinations(generic.FormView):
     primarily so that Django can do the form validation server-side and pass any errors to
     the client using Django's Form machinery.
     Validation of the form is done in three stages:
-        1) ``NewDestinationForm``
+        1) ``CreateDestinationForm``
         2) ``models.Destination.objects.create_with_aliases``
         3) ``models.Destination``
     See the docstring for ``models.Destination.objects.create_with_aliases`` for more information.
     Note that setting the default fallback destination is not currently supported via this endpoint.
     """
 
-    form_class = NewDestinationForm
+    form_class = CreateDestinationForm
     template_name = "ui/list-destinations.html"
 
-    def gen_destinations_with_aliases(  # pylint: disable=no-self-use
-        self,
-    ) -> typing.Dict[int, typing.Dict[str, typing.Union[str, typing.List[str]]]]:
+    @staticmethod
+    def gen_destinations_with_aliases() -> typing.Dict[int, typing.Dict[str, typing.Union[str, typing.List[str]]]]:
         """Retrieve list of destinations and aliases from database.
 
         Aliases are aggregated per-destination and sorted in alphabetical order for display.
         """
         # OrderedDict + ordering by Destination.description ensures the table is sorted by description in the UI
         destinations: typing.Dict[int, typing.Dict[str, typing.Any]] = OrderedDict()
+        aliases = models.Alias.objects.select_related("destination").order_by("destination__description", "name").all()
         try:
-            for alias in models.Alias.objects.select_related("destination").order_by("destination__description").all():
+            for alias in aliases:
                 if alias.destination.id not in destinations:
                     destinations[alias.destination.id] = {
                         "url": alias.destination.url,
@@ -81,11 +82,8 @@ class ListDestinations(generic.FormView):
                     }
                 else:
                     destinations[alias.destination.id]["aliases"].append(alias.name)
-
-            for destination in destinations.values():
-                destination["aliases"] = sorted(destination["aliases"])
         except DatabaseError as exc:
-            logger.warning("Failed to fetch destinations from database ({})", exc)
+            logger.warning("Failed to fetch destinations from database", exc_info=exc)
         return destinations
 
     def get_context_data(self, **kwargs) -> typing.Dict[typing.Any, typing.Any]:
@@ -93,7 +91,7 @@ class ListDestinations(generic.FormView):
         context["destinations"] = self.gen_destinations_with_aliases()
         return context
 
-    def form_valid(self, form: NewDestinationForm) -> HttpResponse:
+    def form_valid(self, form: CreateDestinationForm) -> HttpResponse:
         try:
             _destination = models.Destination.objects.create_with_aliases(
                 form.cleaned_data["url"],
@@ -102,12 +100,13 @@ class ListDestinations(generic.FormView):
                 form.cleaned_data["is_fallback"],
                 False,
             )
+            messages.info(self.request, "Shortcut added")
         except (DatabaseError, ValueError) as exc:
             logger.warning(
-                "Failed to create new destination {} with aliases {} ({})",
+                "Failed to create new destination {} with aliases {}",
                 form.cleaned_data["url"],
                 form.cleaned_data["aliases"],
-                exc,
+                exc_info=exc,
             )
-        # TODO: Redirect with flash message stating successful/failed addition
+            messages.error(self.request, "Could not add shortcut, please check submission and try again")
         return HttpResponseRedirect(reverse("list-destinations"))

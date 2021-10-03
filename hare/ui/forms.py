@@ -65,7 +65,7 @@ class DelimitedCharField(forms.CharField):
         return value
 
 
-class NewDestinationForm(forms.Form):
+class CreateDestinationForm(forms.Form):
     """Form to create new destination with alias(es).
 
     Intended to be used with ``hare.core.models.Destination.objects.create_with_aliases``.
@@ -85,7 +85,6 @@ class NewDestinationForm(forms.Form):
         ),
     )
     aliases = DelimitedCharField(
-        ## aliases = forms.CharField(
         label="Aliases",
         help_text='One or more aliases for the shortcut separated by commas (i.e., "d,ddg,duckduckgo").',
     )

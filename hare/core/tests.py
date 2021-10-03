@@ -32,158 +32,164 @@ from hare.core.tests_utils import run_test_units, TestUnit
 
 class TestDestinationManagerUtils(unittest.TestCase):
     """Tests for DestinationManager util functions
-    _validate_netloc_url and _gen_num_args_from_url.
+    models_utils.validate_netloc_url and models_utils.gen_num_args_from_url.
     """
 
-    def test_validate_netloc_url(self) -> None:
-        """Tests for ``_validate_netloc_url``.
-        See: ``hare.core.models._validate_netloc_url`` for valid URL requirements.
+    def test_models_utils_validate_netloc_url(self) -> None:
+        """Tests for ``models_utils.validate_netloc_url``.
+        See: ``hare.core.models.models_utils.validate_netloc_url`` for valid URL requirements.
         """
         tests = [
-            TestUnit("not_url", ValueError, models._validate_netloc_url, "This is not a URL", assertion="assertRaises"),
+            TestUnit(
+                "not_url",
+                ValueError,
+                models.models_utils.validate_netloc_url,
+                "This is not a URL",
+                assertion="assertRaises",
+            ),
             TestUnit(
                 "unc_path",
                 ValueError,
-                models._validate_netloc_url,
+                models.models_utils.validate_netloc_url,
                 "\\\\fileshare02\\share_name",
                 assertion="assertRaises",
             ),
             TestUnit(
                 "domain_without_preceding_slashes",
                 ValueError,
-                models._validate_netloc_url,
+                models.models_utils.validate_netloc_url,
                 "www.python.org",
                 assertion="assertRaises",
             ),
             TestUnit(
                 "invalid_url_without_preceding_slashes",
                 ValueError,
-                models._validate_netloc_url,
+                models.models_utils.validate_netloc_url,
                 "www.python.org/downloads/",
                 assertion="assertRaises",
             ),
             TestUnit(
                 "invalid_url_without_domain",
                 ValueError,
-                models._validate_netloc_url,
+                models.models_utils.validate_netloc_url,
                 "/downloads/python3.6.9",
                 assertion="assertRaises",
             ),
             TestUnit(
                 "invalid_url_with_ip_address_without_preceding_slashes",
                 ValueError,
-                models._validate_netloc_url,
+                models.models_utils.validate_netloc_url,
                 "172.84.99.127:8080/g",
                 assertion="assertRaises",
             ),
             TestUnit(
                 "amazon_arn",
                 ValueError,
-                models._validate_netloc_url,
+                models.models_utils.validate_netloc_url,
                 "arn:aws:iam::123456789012:user/username@domain.com",
                 assertion="assertRaises",
             ),
             TestUnit(
                 "valid_url_without_scheme",
                 "http://www.python.org/downloads",
-                models._validate_netloc_url("//www.python.org/downloads"),
+                models.models_utils.validate_netloc_url("//www.python.org/downloads"),
             ),
             TestUnit(
                 "valid_url_without_scheme_with_argument",
                 "http://www.python.org/downloads/{}",
-                models._validate_netloc_url("//www.python.org/downloads/{}"),
+                models.models_utils.validate_netloc_url("//www.python.org/downloads/{}"),
             ),
             TestUnit(
                 "valid_url_without_scheme_with_arguments",
                 "http://www.python.org/downloads/{}/{}",
-                models._validate_netloc_url("//www.python.org/downloads/{}/{}"),
+                models.models_utils.validate_netloc_url("//www.python.org/downloads/{}/{}"),
             ),
             TestUnit(
                 "valid_url_with_scheme",
                 "https://www.virustotal.com/gui/",
-                models._validate_netloc_url("https://www.virustotal.com/gui/"),
+                models.models_utils.validate_netloc_url("https://www.virustotal.com/gui/"),
             ),
             TestUnit(
                 "valid_url_with_scheme_with_argument",
                 "https://www.virustotal.com/gui/ip-address/{}/detection",
-                models._validate_netloc_url("https://www.virustotal.com/gui/ip-address/{}/detection"),
+                models.models_utils.validate_netloc_url("https://www.virustotal.com/gui/ip-address/{}/detection"),
             ),
             TestUnit(
                 "valid_url_with_scheme_with_arguments",
                 "https://www.virustotal.com/gui/ip-address/{}/{}",
-                models._validate_netloc_url("https://www.virustotal.com/gui/ip-address/{}/{}"),
+                models.models_utils.validate_netloc_url("https://www.virustotal.com/gui/ip-address/{}/{}"),
             ),
         ]
 
         run_test_units(self, tests)
 
-    def test_gen_num_args_from_url(self) -> None:
-        """Test that ``_gen_num_args_from_url`` parses the correct
+    def test_models_utils_gen_num_args_from_url(self) -> None:
+        """Test that ``models_utils.gen_num_args_from_url`` parses the correct
         number of *positional* arguments from format strings.
 
-        Technically ``_gen_num_args_from_url`` can parse non-URL strings,
-        but it is only used after a call to ``_validate_netloc_url``
+        Technically ``models_utils.gen_num_args_from_url`` can parse non-URL strings,
+        but it is only used after a call to ``models_utils.validate_netloc_url``
         and thus only URL data are tested here.
         """
         tests = [
             TestUnit(
                 "no_arguments_with_scheme",
                 0,
-                models._gen_num_args_from_url("https//en.wikipedia.org/w/index.php"),
+                models.models_utils.gen_num_args_from_url("https//en.wikipedia.org/w/index.php"),
             ),
             TestUnit(
                 "no_arguments_without_scheme",
                 0,
-                models._gen_num_args_from_url("//en.wikipedia.org/w/index.php"),
+                models.models_utils.gen_num_args_from_url("//en.wikipedia.org/w/index.php"),
             ),
             TestUnit(
                 "single_positional_argument_in_path_with_scheme",
                 1,
-                models._gen_num_args_from_url("https://www.reddit.com/r/{}"),
+                models.models_utils.gen_num_args_from_url("https://www.reddit.com/r/{}"),
             ),
             TestUnit(
                 "single_positional_argument_in_path_without_scheme",
                 1,
-                models._gen_num_args_from_url("//www.reddit.com/r/{}"),
+                models.models_utils.gen_num_args_from_url("//www.reddit.com/r/{}"),
             ),
             TestUnit(
                 "single_positional_argument_in_query_with_scheme",
                 1,
-                models._gen_num_args_from_url("https://www.shodan.io/search?query={}"),
+                models.models_utils.gen_num_args_from_url("https://www.shodan.io/search?query={}"),
             ),
             TestUnit(
                 "single_positional_argument_in_query_without_scheme",
                 1,
-                models._gen_num_args_from_url("//www.shodan.io/search?query={}"),
+                models.models_utils.gen_num_args_from_url("//www.shodan.io/search?query={}"),
             ),
             TestUnit(
                 "two_positional_arguments_in_path",
                 2,
-                models._gen_num_args_from_url("https://www.worldtimebuddy.com/{}-to-{}-converter"),
+                models.models_utils.gen_num_args_from_url("https://www.worldtimebuddy.com/{}-to-{}-converter"),
             ),
             TestUnit(
                 "ten_positional_arguments_in_path_and_query",
                 10,
-                models._gen_num_args_from_url("https://time.is/{}#{}?query={}{}{}{}{}{}{}{}"),
+                models.models_utils.gen_num_args_from_url("https://time.is/{}#{}?query={}{}{}{}{}{}{}{}"),
             ),
             TestUnit(
                 "single_keyword_argument",
                 ValueError,
-                models._gen_num_args_from_url,
+                models.models_utils.gen_num_args_from_url,
                 "https://en.wikipedia.org/w/index.php?search={search}",
                 assertion="assertRaises",
             ),
             TestUnit(
                 "two_keyword_arguments",
                 ValueError,
-                models._gen_num_args_from_url,
+                models.models_utils.gen_num_args_from_url,
                 "https://en.wikipedia.org/w/index.php?search={search}&title={title}",
                 assertion="assertRaises",
             ),
             TestUnit(
                 "single_keyword_argument_one_positional",
                 ValueError,
-                models._gen_num_args_from_url,
+                models.models_utils.gen_num_args_from_url,
                 "https://en.wikipedia.org/w/index.php?search={search}&title={}",
                 assertion="assertRaises",
             ),

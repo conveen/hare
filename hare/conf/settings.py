@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "rest_framework",
     "hare.api",
     "hare.core",
     "hare.ui",
@@ -166,3 +167,8 @@ if ENV.get(f"f{settings_utils.ENV_VAR_PREFIX}_SUPPORT_PROXY", "").lower() == "tr
 if not DEBUG:
     CSRF_COOKIE_SECURE = True
     SESSION_COOKIE_SECURE = True
+
+
+# Messages Settings
+
+MESSAGE_STORAGE = "django.contrib.messages.storage.session.SessionStorage"
