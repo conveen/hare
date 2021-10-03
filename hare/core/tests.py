@@ -213,6 +213,7 @@ class TestDestinationManager(django_unittest.TestCase):
             destination = models.Destination.objects.create(
                 url=url,
                 num_args=1,
+                description=description,
                 is_fallback=is_fallback,
                 is_default_fallback=is_default_fallback,
             )
