@@ -19,11 +19,11 @@
 **/*.swo
 
 # Python virtual environment
-.venv
+**/.venv
 
 # Coverage files
-.coverage
-htmlcov
+**/.coverage
+**/htmlcov
 
 # Code editor configs
 ## Intellij
