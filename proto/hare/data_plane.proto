@@ -1,0 +1,191 @@
+syntax = "proto3";
+
+package app.conveen.hare.data_plane;
+
+import "google/protobuf/empty.proto";
+
+import "../../proto/hare/pagination.proto"
+
+service HareDataPlane {
+    /* Add one or more aliases to a shortcut.
+     *
+     * Aliases in the request are deduplicated, and are deduplicated with existing aliases for the shortcut,
+     * thus this function is idempotent.
+     *
+     * Preconditions:
+     *     * The alias(es) must be unique across all shortcuts.
+     * 
+     * Argument Requirements:
+     *     * Must supply at least one alias to add.
+     *     * Destination UID must correspond to an existing destination.
+     *
+     * Raises:
+     *     RESOURCE_EXHAUSTED: if caller is rate-limited.
+     *     INVALID_ARGUMENT: if one or more arguments do not meet the requirements.
+     *     ALREADY_EXISTS: if one or more aliases already exist for other shortcut(s).
+     *     NOT_FOUND: if the shortcut does not exist.
+     *     INTERNAL: internal server error.
+     */
+    rpc AddAliasesForShortcut(AddAliasesForShortcutRequest) returns (google.protobuf.Empty);
+
+    /* Create a new shortcut.
+     *
+     * Shortcuts are deduplicated by destination URL, thus this function is idempotent.
+     * However, depending on the URL matching logic, it may be possible to submit
+     * different URLs that are semantically identical (e.g. by changing URL parameter order).
+     *
+     * Raises:
+     *     RESOURCE_EXHAUSTED: if caller is rate-limited.
+     *     INVALID_ARGUMENT: if one or more arguments do not meet the requirements.
+     *     ALREADY_EXISTS: if the shortcut already exists (see above for note about deduplication logic).
+     *     INTERNAL: internal server error.
+     */
+    rpc CreateShortcut(CreateShortcutRequest) returns (CreateShortcutResponse);
+
+    /* Delete one or more aliases for a shortcut.
+     *
+     * If one or more aliases does not exist for a shortcut the function will exit successfully (no error raised).
+     *
+     * Preconditions:
+     *     * Shortcuts must always have at least one alias.
+     * 
+     * Argument Requirements:
+     *     * Destination UID must correspond to an existing destination.
+     *
+     * Raises:
+     *     RESOURCE_EXHAUSTED: if caller is rate-limited.
+     *     INVALID_ARGUMENT: if one or more arguments do not meet the requirements.
+     *     FAILED_PRECONDITION: if the shortcut only has one existing alias.
+     *     NOT_FOUND: if the shortcut does not exist.
+     *     INTERNAL: internal server error.
+     */
+    rpc DeleteAliasesForShortcut(DeleteAliasesForShortcutRequest) returns (google.protobuf.Empty);
+
+    /* Delete a shortcut.
+     *
+     * Argument Requirements:
+     *     * Destination UID must correspond to an existing destination.
+     *
+     * Raises:
+     *     RESOURCE_EXHAUSTED: if caller is rate-limited.
+     *     INVALID_ARGUMENT: if one or more arguments do not meet the requirements.
+     *     NOT_FOUND: if the shortcut does not exist.
+     *     INTERNAL: internal server error.
+     */
+    rpc DeleteShortcut(DeleteShortcutRequest) returns (google.protobuf.Empty);
+
+    /* Get a shortcut.
+     *
+     * Argument Requirements:
+     *     * A destination UID, alias, or the default_fallback flag must be provided.
+     *     * Destination UID must correspond to an existing destination.
+     *     * Alias must correspond to an existing shortcut.
+     *
+     * Raises:
+     *     RESOURCE_EXHAUSTED: if caller is rate-limited.
+     *     INVALID_ARGUMENT: if one or more arguments do not meet the requirements.
+     *     NOT_FOUND: if the shortcut does not exist.
+     *     INTERNAL: internal server error.
+     */
+    rpc GetShortcut(GetShortcutRequest) returns (GetShortcutResponse);
+
+    /* List all shorcuts.
+     *
+     * This function is paginated.
+     * The `page_token` format is opaque to the caller and set by the server. Callers must not depend on the format.
+     * The default and maximum values for `page_size` are determined by the implementation.
+     * Once all shortcuts have been returned, `next_page_token` will be empty (`null`).
+     *
+     * Argument Requirements:
+     *     * Page token must be a valid token provided by the server.
+     *     * Page size must be <= the maximum set by the server.
+     *
+     * Raises:
+     *     RESOURCE_EXHAUSTED: if caller is rate-limited.
+     *     INVALID_ARGUMENT: if one or more arguments do not meet the requirements.
+     *     INTERNAL: internal server error.
+     */
+    rpc ListShortcuts(ListShortcutsRequest) returns (ListShortcutsResponse);
+
+    /* Update a shortcut.
+     *
+     * Argument Requirements:
+     *     * Either a destination UID or alias must be provided.
+     *     * Destination UID must correspond to an existing destination.
+     *     * Alias must correspond to an existing shortcut.
+     *
+     * Raises:
+     *     RESOURCE_EXHAUSTED: if caller is rate-limited.
+     *     NOT_FOUND: if the shortcut does not exist.
+     *     INTERNAL: internal server error.
+     */
+    rpc UpdateShortcut(UpdateShortcutRequest) returns (google.protobuf.Empty);
+}
+
+message Destination {
+    string uid = 1;
+    string url = 2;
+    int32 num_args = 3;
+    bool is_fallback = 4;
+    bool is_default_fallback = 5;
+    string description = 6;
+}
+
+message Alias 
+    optional string uid = 1;
+    string name = 2;
+}
+
+message Shortcut {
+    Destination destination = 1;
+    repeated Alias aliases = 2;
+}
+
+message AddAliasesForShortcutRequest {
+    string destination_uid = 1;
+    repeated Alias aliases = 2;
+}
+
+message CreateShortcutRequestDestination {
+    string url = 1;
+    int32 num_args = 2;
+    bool is_fallback = 3;
+    bool is_default_fallback = 4;
+    string description = 5;
+}
+
+message CreateShortcutRequest {
+    CreateShortcutRequestDestination destination = 1;
+    repeated Alias aliases = 2;
+}
+
+message CreateShortcutResponse {
+    string destination_uid = 1;
+}
+
+message DeleteAliasesForShortcutRequest {
+    string destination_uid = 1;
+    repeated Alias aliases = 2;
+}
+
+message DeleteShortcutRequest {
+    string destination_uid = 1;
+}
+
+message GetShortcutRequest {
+    optional string uid = 1;
+    optional Alias alias = 2;
+}
+message GetShortcutResponse {
+    Shortcut shortcut = 1;
+}
+
+message ListShortcutsRequest {
+    app.conveen.hare.common.pagination.PaginationRequest pagination = 1;
+}
+message ListShortcutsResponse {
+    ShortcutList shortcuts = 1;
+    app.conveen.hare.common.pagination.PaginationContinuation pagination_continuation = 2;
+}
+
+message UpdateShortcutRequest {}

@@ -1,0 +1,343 @@
+use crate::{
+    error::{self, DataPlaneError},
+    model::{CommittedAlias, CommittedDestination, CommittedShortcut, CommittedShortcutList},
+    pagination::ContinuationToken,
+    utils, HareDataPlaneClient, ListShortcutsResponse,
+};
+use hare_common_model::app::conveen::hare::common::pagination::{PaginationContinuation, PaginationRequest};
+use sqlx::error::DatabaseError;
+
+#[derive(Debug)]
+pub struct HareDataPlaneSqlite {
+    codec: base64::engine::GeneralPurpose,
+    connection: sqlx::Pool<sqlx::Sqlite>,
+}
+
+impl HareDataPlaneSqlite {
+    pub fn from_connection(connection: sqlx::Pool<sqlx::Sqlite>) -> Self {
+        let codec = base64::engine::general_purpose::URL_SAFE_NO_PAD;
+        HareDataPlaneSqlite { codec, connection }
+    }
+
+    pub async fn try_from_url<U: AsRef<str>>(database_url: U) -> error::DataPlaneResult<Self> {
+        let connection = sqlx::Pool::connect(database_url.as_ref()).await?;
+        Ok(Self::from_connection(connection))
+    }
+
+    /// Add one alias to a shortcut.
+    ///
+    /// Helper method for [`add_aliases_for_shortcut`] that maps SQLx SQLite errors.
+    async fn add_alias_for_shortcut(
+        &self,
+        uid: &str,
+        alias: &str,
+    ) -> error::DataPlaneResult<sqlx::sqlite::SqliteQueryResult> {
+        sqlx::query("INSERT INTO alias (destination_uid, name) VALUES (?, ?)")
+            .bind(uid)
+            .bind(alias)
+            .execute(&self.connection)
+            .await
+            .map_err(|err| match err {
+                sqlx::Error::Database(ref db_err) => {
+                    if db_err.downcast_ref::<sqlx::sqlite::SqliteError>().is_foreign_key_violation() {
+                        error::DataPlaneError::NotFound { resource_id: uid.to_string() }
+                    } else if db_err.downcast_ref::<sqlx::sqlite::SqliteError>().is_unique_violation() {
+                        error::DataPlaneError::AlreadyExists { resource_id: alias.to_string() }
+                    } else {
+                        error::DataPlaneError::from(err)
+                    }
+                },
+                _ => error::DataPlaneError::from(err),
+            })
+    }
+}
+
+#[tonic::async_trait]
+impl HareDataPlaneClient for HareDataPlaneSqlite {
+    async fn bootstrap(&self) -> error::DataPlaneResult<()> {
+        sqlx::migrate!().run(&self.connection).await?;
+        Ok(())
+    }
+
+    async fn add_aliases_for_shortcut(
+        &self,
+        uid: &str,
+        aliases: &[&str],
+    ) -> error::DataPlaneResult<Option<Vec<String>>> {
+        // Keep a list of observed aliases to dedupe
+        let mut aliases_seen = std::collections::HashSet::with_capacity(aliases.len());
+        for alias in aliases {
+            if !aliases_seen.contains(alias) {
+                self.add_alias_for_shortcut(uid, alias).await?;
+                aliases_seen.insert(alias);
+            }
+        }
+
+        Ok(Some(aliases_seen.iter().map(|alias| alias.to_string()).collect()))
+    }
+
+    async fn create_shortcut(
+        &self,
+        url: &str,
+        is_fallback: bool,
+        is_default_fallback: bool,
+        description: &str,
+        aliases: &[&str],
+    ) -> error::DataPlaneResult<String> {
+        if aliases.is_empty() {
+            return Err(error::DataPlaneError::InvalidArgument {
+                message: "Must provide at least one alias".to_string(),
+            });
+        }
+
+        let validated_url = utils::validate_url(url)?;
+        let num_params = utils::gen_num_params_from_url(&validated_url);
+        let uid = uuid::Uuid::new_v4().to_string();
+
+        sqlx::query("INSERT INTO destination (uid, url, num_params, is_fallback, is_default_fallback, description) VALUES (?, ?, ?, ?, ?, ?)")
+            .bind(&uid)
+            .bind(&validated_url)
+            .bind(num_params)
+            .bind(is_fallback)
+            .bind(is_default_fallback)
+            .bind(description)
+            .execute(&self.connection)
+            .await
+            .map_err(|err| match err {
+                sqlx::Error::Database(ref db_err) => {
+                    if db_err.downcast_ref::<sqlx::sqlite::SqliteError>().is_unique_violation() {
+                        error::DataPlaneError::AlreadyExists { resource_id: validated_url.clone() }
+                    } else {
+                        error::DataPlaneError::from(err)
+                    }
+                },
+                _ => error::DataPlaneError::from(err),
+            })?;
+
+        self.add_aliases_for_shortcut(&uid, aliases).await?;
+
+        Ok(uid)
+    }
+
+    async fn delete_aliases_for_shortcut(
+        &self,
+        uid: &str,
+        aliases: &[&str],
+    ) -> error::DataPlaneResult<Option<Vec<String>>> {
+        if aliases.is_empty() {
+            return Ok(None);
+        }
+
+        let aliases_set = aliases.iter().collect::<std::collections::HashSet<_>>();
+        let resultset = sqlx::query!("SELECT COUNT(name) as num_aliases FROM alias WHERE destination_uid = ?", uid)
+            .fetch_one(&self.connection)
+            .await?;
+        if resultset.num_aliases == 0 {
+            return Err(error::DataPlaneError::NotFound { resource_id: uid.to_string() });
+        }
+        if resultset.num_aliases <= aliases_set.len().try_into().unwrap() {
+            return Err(error::DataPlaneError::FailedPrecondition {
+                message: format!(
+                    "Tried to delete {} aliases but only {} exist",
+                    aliases_set.len(),
+                    resultset.num_aliases,
+                ),
+            });
+        }
+
+        let mut aliases_deleted = std::collections::HashSet::with_capacity(aliases_set.len());
+        for alias in aliases_set.iter() {
+            // TODO catch error if alias does not exist
+            sqlx::query("DELETE FROM alias WHERE destination_uid = ? AND name = ?")
+                .bind(uid)
+                .bind(alias)
+                .execute(&self.connection)
+                .await?;
+            aliases_deleted.insert(alias);
+        }
+
+        Ok(Some(aliases_deleted.into_iter().map(|alias| alias.to_string()).collect::<Vec<_>>()))
+    }
+
+    async fn delete_shortcut(&self, uid: &str) -> error::DataPlaneResult<()> {
+        // TODO: Map from database error for destination not exist to NotFound
+        sqlx::query!("DELETE FROM destination WHERE uid = ?", uid).execute(&self.connection).await?;
+
+        Ok(())
+    }
+
+    async fn get_default_fallback_shortcut(&self) -> error::DataPlaneResult<CommittedShortcut> {
+        // TODO: Map from database error for destination not exist to NotFound
+        let destination: CommittedDestination =
+            sqlx::query_as!(CommittedDestination, "SELECT * FROM destination WHERE is_default_fallback = TRUE",)
+                .fetch_one(&self.connection)
+                .await?;
+
+        let aliases = sqlx::query_as!(
+            CommittedAlias,
+            "SELECT NULL as \"destination_uid?: String\", NULL AS \"uid?: String\", name FROM alias WHERE destination_uid = ?",
+            destination.uid
+        )
+        .fetch_all(&self.connection)
+        .await?;
+        Ok(CommittedShortcut { destination, aliases })
+    }
+
+    async fn get_shortcut_by_uid(&self, uid: &str) -> error::DataPlaneResult<CommittedShortcut> {
+        // TODO: Map from database error for destination not exist to NotFound
+        let destination: CommittedDestination =
+            sqlx::query_as!(CommittedDestination, "SELECT * FROM destination WHERE uid = ?", uid)
+                .fetch_one(&self.connection)
+                .await?;
+
+        let aliases = sqlx::query_as!(
+            CommittedAlias,
+            "SELECT destination_uid, NULL AS \"uid?: String\", name FROM alias WHERE destination_uid = ?",
+            uid
+        )
+        .fetch_all(&self.connection)
+        .await?;
+        Ok(CommittedShortcut { destination, aliases })
+    }
+
+    async fn get_shortcut_by_alias(&self, alias: &str) -> error::DataPlaneResult<CommittedShortcut> {
+        let aliases: Vec<CommittedAlias> = sqlx::query_as!(
+            CommittedAlias,
+            "SELECT destination_uid, NULL as \"uid?: String\", name from alias where destination_uid = (SELECT destination_uid FROM alias where name = ?)",
+            alias,
+        )
+            .fetch_all(&self.connection)
+            .await?;
+
+        if aliases.len() == 0 {
+            return Err(error::DataPlaneError::NotFound { resource_id: alias.to_string() });
+        }
+
+        let destination_uid = aliases[0].destination_uid.as_ref().unwrap();
+        let destination =
+            sqlx::query_as!(CommittedDestination, "SELECT * FROM destination WHERE uid = ?", destination_uid)
+                .fetch_one(&self.connection)
+                .await?;
+
+        Ok(CommittedShortcut { destination, aliases })
+    }
+
+    async fn list_shortcuts(
+        &self,
+        pagination_request: &PaginationRequest,
+    ) -> error::DataPlaneResult<ListShortcutsResponse> {
+        let continuation_token = if pagination_request.continuation_token.is_some() {
+            ContinuationToken::try_from_str(&self.codec, pagination_request.continuation_token.as_ref().unwrap())
+        } else if let Some(page_size) = pagination_request.page_size {
+            Ok(ContinuationToken::new(page_size as u32, 0))
+        } else {
+            Err(error::DataPlaneError::InvalidArgument {
+                message: "Must supply either page_size or continuation_token".to_string(),
+            })
+        }?;
+
+        let destinations: Vec<CommittedDestination> = sqlx::query_as!(
+            CommittedDestination,
+            "SELECT * FROM destination ORDER BY description, url LIMIT ? OFFSET ?",
+            continuation_token.page_size,
+            continuation_token.offset,
+        )
+        .fetch_all(&self.connection)
+        .await?;
+        let num_destinations = destinations.len();
+        if num_destinations == 0 {
+            return Ok(ListShortcutsResponse {
+                shortcuts: CommittedShortcutList { shortcuts: Vec::new() },
+                pagination: PaginationContinuation { next_continuation_token: None },
+            });
+        }
+
+        let destination_uids =
+            destinations.iter().map(|destination| destination.uid.as_ref()).collect::<Vec<&str>>().join(",");
+        let aliases: Vec<CommittedAlias> = sqlx::query_as!(
+            CommittedAlias,
+            "SELECT destination_uid, NULL as \"uid?: String\", name FROM alias WHERE destination_uid IN (?) ORDER BY destination_uid",
+            // Is not SQL injection risk because destinations are generated from query above
+            destination_uids,
+        )
+        .fetch_all(&self.connection)
+        .await?;
+        // Each destination must have at least one alias, so the map size is guaranteed to have same capacity as destinations.
+        let mut aliases_by_destination = aliases.into_iter().fold(
+            std::collections::HashMap::<String, Vec<CommittedAlias>>::with_capacity(num_destinations),
+            |mut acc, alias| {
+                let destination_uid = alias.destination_uid.as_ref().unwrap();
+                if acc.contains_key(destination_uid) {
+                    acc.get_mut(destination_uid.as_str()).unwrap().push(alias);
+                } else {
+                    // TODO: figure out how to avoid extra allocation here
+                    // Allocating because key cannot be reference from value itself (I think)
+                    acc.insert(alias.destination_uid.as_ref().unwrap().clone(), vec![alias]);
+                }
+                acc
+            },
+        );
+
+        Ok(ListShortcutsResponse {
+            shortcuts: CommittedShortcutList {
+                shortcuts: destinations
+                    .into_iter()
+                    .map(|destination| {
+                        let aliases = aliases_by_destination.remove(destination.uid.as_str()).unwrap();
+                        CommittedShortcut { destination, aliases }
+                    })
+                    .collect(),
+            },
+            // TODO: verify that offset + num_destinations doesn't include last destination from previous page
+            pagination: PaginationContinuation {
+                next_continuation_token: Some(
+                    ContinuationToken::new(
+                        continuation_token.page_size,
+                        continuation_token.offset + num_destinations as u32,
+                    )
+                    .try_to_string(&self.codec)?,
+                ),
+            },
+        })
+    }
+
+    async fn update_shortcut(
+        &self,
+        uid: Option<&str>,
+        alias: Option<&str>,
+        url: Option<&str>,
+        is_fallback: Option<bool>,
+        is_default_fallback: Option<bool>,
+        description: Option<&str>,
+    ) -> error::DataPlaneResult<Option<CommittedShortcut>> {
+        let shortcut = if uid.is_some() {
+            self.get_shortcut_by_uid(uid.unwrap()).await?
+        } else if alias.is_some() {
+            self.get_shortcut_by_alias(alias.unwrap()).await?
+        } else {
+            return Err(error::DataPlaneError::InvalidArgument {
+                message: "Must supply one of shortcut uid or alias".to_string(),
+            });
+        };
+        // If nothing to change, just return the shortcut
+        if !(url.is_some() || is_fallback.is_some() || is_default_fallback.is_some() || description.is_some()) {
+            return Ok(Some(shortcut));
+        }
+
+        let update_url = url.unwrap_or(shortcut.destination.url.as_str());
+        let update_is_fallback = is_fallback.unwrap_or(shortcut.destination.is_fallback);
+        let update_is_default_fallback = is_default_fallback.unwrap_or(shortcut.destination.is_default_fallback);
+        let update_description = description.unwrap_or(shortcut.destination.description.as_str());
+        let destination: CommittedDestination = sqlx::query_as!(
+            CommittedDestination,
+            "UPDATE destination SET url = ?, is_fallback = ?, is_default_fallback = ?, description = ? RETURNING *",
+            update_url,
+            update_is_fallback,
+            update_is_default_fallback,
+            update_description,
+        )
+        .fetch_one(&self.connection)
+        .await?;
+        Ok(Some(CommittedShortcut { destination, aliases: shortcut.aliases }))
+    }
+}

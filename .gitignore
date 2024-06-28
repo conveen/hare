@@ -13,6 +13,7 @@
 # Ignore database files
 **/*.db
 **/*.sqlite3
+**/.sqlx
 
 # Vim swap files
 **/*.swp

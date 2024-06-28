@@ -1,0 +1,12 @@
+[package]
+name = "hare-control-plane-client"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+hare-common-model = { path = "../hare-common-model" }
+tonic = { version = "0.11", default_features = false, features = ["codegen", "prost", "transport"] }
+prost = "0.12"
+
+[build-dependencies]
+tonic-build = "0.11"

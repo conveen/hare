@@ -1,0 +1,19 @@
+[package]
+name = "hare-data-plane-client"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["sqlite"]
+sqlite = ["sqlx", "sqlx/migrate", "sqlx/sqlite"]
+
+[dependencies]
+base64 = "0.21.5"
+hare-common-model = { path = "../hare-common-model" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sqlx = { version = "0.7", default_features = false, features = [ "macros", "runtime-tokio" ], optional = true }
+thiserror = { workspace = true }
+tonic = { workspace = true }
+url = "2"
+uuid = { version = "1.5.0", default_features = false, features = [ "fast-rng", "std", "v4" ] }

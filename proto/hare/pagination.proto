@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package app.conveen.hare.common.pagination;
+
+message PaginationRequest {
+    optional string continuation_token = 1;
+    optional int32 page_size = 2;
+}
+
+message PaginationContinuation {
+    optional string next_continuation_token = 1;
+}

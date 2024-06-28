@@ -1,0 +1,277 @@
+syntax = "proto3";
+
+package app.conveen.hare.control_plane;
+
+import "google/protobuf/empty.proto";
+
+import "pagination.proto";
+
+/* Service Definition */
+service HareControlPlane {
+    /* Add one or more aliases to a shortcut.
+     *
+     * Aliases in the request are deduplicated but are not deduplicated with existing aliases, so this function is not idempotent.
+     *
+     * Preconditions:
+     *     * The alias(es) must be unique across all shortcuts.
+     * 
+     * Argument Requirements:
+     *     * Must supply at least one alias to add.
+     *     * Shortcut UID must correspond to an existing shortcut.
+     *
+     * Raises:
+     *     RESOURCE_EXHAUSTED: if caller is rate-limited.
+     *     INVALID_ARGUMENT: if one or more arguments do not meet the requirements.
+     *     ALREADY_EXISTS: if one or more aliases already exist.
+     *     NOT_FOUND: if the shortcut does not exist.
+     *     INTERNAL: internal server error.
+      */
+    rpc AddAliasesForShortcut(AddAliasesForShortcutRequest) returns (google.protobuf.Empty);
+
+    /* Create a new shortcut.
+     *
+     * A shortcut contains a redirect URL with zero or more arguments, a description, and one or more aliases.
+     * A "fallback" shortcut is one that can be used if the alias provided in the query does not exist.
+     * Fallback shortcuts are typically search engines like Duck Duck Go, Google, Bing, internal company search, etc.
+     * New shortcuts are not fallbacks by default (`is_default` is set to `false).
+     * Shortcuts are deduplicated by URL, thus this function is idempotent. However, depending on the URL matching logic
+     * it may be possible to submit different URLs that are semantically identical (e.g. by changing URL parameter order).
+     * Clients are encouraged to normalize URL parameter order (e.g. alphabetically) before creating shortcuts.
+     *
+     * Raises:
+     *     RESOURCE_EXHAUSTED: if caller is rate-limited.
+     *     INVALID_ARGUMENT: if one or more arguments do not meet the requirements.
+     *     ALREADY_EXISTS: if the shortcut already exists (see above for note about deduplication logic).
+     *     INTERNAL: internal server error.
+      */
+    rpc CreateShortcut(CreateShortcutRequest) returns (CreateShortcutResponse);
+
+    /* Delete one alias for a shortcut.
+     *
+     * If the alias does not exist for a shortcut the function will exit successfully (no error raised).
+     *
+     * Preconditions:
+     *     * Shortcuts must always have at least one alias.
+     * 
+     * Argument Requirements:
+     *     * Shortcut UID must correspond to an existing shortcut.
+     *
+     * Raises:
+     *     RESOURCE_EXHAUSTED: if caller is rate-limited.
+     *     INVALID_ARGUMENT: if one or more arguments do not meet the requirements.
+     *     FAILED_PRECONDITION: if the shortcut only has one existing alias.
+     *     NOT_FOUND: if the shortcut does not exist.
+     *     INTERNAL: internal server error.
+     */
+    rpc DeleteAliasForShortcut(DeleteAliasForShortcutRequest) returns (google.protobuf.Empty);
+
+    /* Delete a shortcut.
+     *
+     * Argument Requirements:
+     *     * Shortcut UID must correspond to an existing shortcut.
+     *
+     * Raises:
+     *     RESOURCE_EXHAUSTED: if caller is rate-limited.
+     *     INVALID_ARGUMENT: if one or more arguments do not meet the requirements.
+     *     NOT_FOUND: if the shortcut does not exist.
+     *     INTERNAL: internal server error.
+     */
+    rpc DeleteShortcut(DeleteShortcutRequest) returns (google.protobuf.Empty);
+
+    /* Get the default fallback shortcut.
+     *
+     * The default fallback is used when an alias does not resolve to a shortcut and no fallback is provided.
+     *
+     * Preconditions:
+     *     * There can only ever be one (1) default fallback shortcut, having more than one is undefined behavior.
+     *
+     * Raises:
+     *     RESOURCE_EXHAUSTED: if caller is rate-limited.
+     *     NOT_FOUND: if there is no default fallback shortcut.
+     *     INTERNAL: internal server error.
+     */
+    rpc GetDefaultFallbackShortcut(google.protobuf.Empty) returns (GetDefaultFallbackShortcutResponse);
+
+    /* Get a shortcut.
+     *
+     * Argument Requirements:
+     *     * Either a shortcut UID or alias must be provided.
+     *     * Shortcut UID must correspond to an existing shortcut.
+     *     * Alias must correspond to an existing shortcut.
+     *
+     * Raises:
+     *     RESOURCE_EXHAUSTED: if caller is rate-limited.
+     *     INVALID_ARGUMENT: if one or more arguments do not meet the requirements.
+     *     NOT_FOUND: if the shortcut does not exist.
+     *     INTERNAL: internal server error.
+     */
+    rpc GetShortcut(GetShortcutRequest) returns (GetShortcutResponse);
+
+    /* List all shorcuts.
+     *
+     * This function is paginated.
+     * The `page_token` format is opaque to the caller and set by the server. Callers must not depend on the format.
+     * The default and maximum values for `page_size` are determined by the implementation.
+     * Once all shortcuts have been returned, `next_page_token` will be empty (`null`).
+     *
+     * Argument Requirements:
+     *     * Page token must be a valid token provided by the server.
+     *     * Page size must be <= the maximum set by the server.
+     *
+     * Raises:
+     *     RESOURCE_EXHAUSTED: if caller is rate-limited.
+     *     INVALID_ARGUMENT: if one or more arguments do not meet the requirements.
+     *     INTERNAL: internal server error.
+     */
+    rpc ListShortcuts(ListShortcutsRequest) returns (ListShortcutsResponse);
+
+    /* Set the default fallback shortcut.
+     *
+     * The default fallback is used when an alias does not resolve to a shortcut and no fallback is provided.
+     * 
+     * Preconditions:
+     *     * There can only ever be one (1) default fallback shortcut, having more than one is undefined behavior.
+     *
+     * Argument Requirements:
+     *     * Either a shortcut UID or alias must be provided.
+     *     * Shortcut UID must correspond to an existing shortcut.
+     *     * Alias must correspond to an existing shortcut.
+     *
+     * Raises:
+     *     RESOURCE_EXHAUSTED: if caller is rate-limited.
+     *     NOT_FOUND: if the shortcut does not exist.
+     *     INTERNAL: internal server error.
+     */
+    rpc SetDefaultFallbackShortcut(SetDefaultFallbackShortcutRequest) returns (google.protobuf.Empty);
+
+    /* Update the URL, `is_fallback` flag, and/or description for a shortcut.
+     *
+     * Only the fields present on the shortcut and non-default (non-`null`) will be updated.
+     *
+     * Argument Requirements:
+     *     * Either a shortcut UID or alias must be provided.
+     *     * Shortcut UID must correspond to an existing shortcut.
+     *     * Alias must correspond to an existing shortcut.
+     *
+     * Raises:
+     *     RESOURCE_EXHAUSTED: if caller is rate-limited.
+     *     NOT_FOUND: if the shortcut does not exist.
+     *     INTERNAL: internal server error.
+     */
+    rpc UpdateShortcut(UpdateShortcutRequest) returns (UpdateShortcutResponse);
+}
+
+/* Alias for a shortcut
+ * 
+ * An alias is a short name/nickname/slug for a shortcut.
+ * They are used in search requests to resolve the shortcut, and make queries shorter to type.
+ * A shortcut can have many aliases, but an alias must refer to exactly one shortcut.
+ */
+message Alias {
+    optional string uid = 1;
+    string name = 2;
+}
+
+/* Shortcut
+ * 
+ * A shortcut is used to respond to queries by redirecting to a URL.
+ * They contain enough information to construct a redirect URL given an alias and zero or more parameters.
+ * Fallback shortcuts take one parameter, a string of length zero or longer.
+ * They are intended to be used when the alias in a query does not exist, and are typically search engines.
+ * The default fallback shortcut is used when the alias in a query does not exist and no fallback is provided.
+ * There can only ever be one (1) default fallback shortcut.
+ */
+message Shortcut {
+    string uid = 1;
+    string url = 2;
+    int32 num_params = 3;
+    bool is_fallback = 4;
+    bool is_default_fallback = 5;
+    string description = 6;
+    repeated Alias aliases = 7;
+}
+
+message ShortcutList {
+    repeated Shortcut shortcuts = 1;
+}
+
+/* AddAliasesForShortcut types  */
+message AddAliasesForShortcutRequest {
+    string uid = 1;
+    repeated Alias aliases = 2;
+}
+
+/* CreateShortcut types  */
+message CreateShortcutRequestShortcut {
+    string url = 1;
+    optional bool is_fallback = 2;
+    string description = 3;
+    repeated Alias aliases = 4;
+}
+
+message CreateShortcutRequest {
+    CreateShortcutRequestShortcut shortcut = 1;
+}
+
+message CreateShortcutResponse {
+    string uid = 1;
+}
+
+/* DeleteAliasForShortcut types  */
+message DeleteAliasForShortcutRequest {
+    string uid = 1;
+    Alias alias = 2;
+}
+
+/* DeleteShortcut types  */
+message DeleteShortcutRequest {
+    string uid = 1;
+}
+
+/* GetDefaultFallbackShortcut types  */
+message GetDefaultFallbackShortcutResponse {
+    Shortcut shortcut = 1;
+}
+
+/* GetShortcut types  */
+message GetShortcutRequest {
+    optional string uid = 1;
+    optional Alias alias = 2;
+}
+
+message GetShortcutResponse {
+    Shortcut shortcut = 1;
+}
+
+/* ListShortcuts types  */
+message ListShortcutsRequest {
+    app.conveen.hare.common.pagination.PaginationRequest pagination = 1;
+}
+
+message ListShortcutsResponse {
+    ShortcutList shortcuts = 1;
+    app.conveen.hare.common.pagination.PaginationContinuation pagination_continuation = 2;
+}
+
+/* SetDefaultFallbackShortcut types  */
+message SetDefaultFallbackShortcutRequest {
+    optional string uid = 1;
+    optional Alias alias = 2;
+}
+
+/* UpdateShortcut types  */
+message UpdateShortcutRequestShortcut {
+    optional string url = 1;
+    optional bool is_fallback = 2;
+    optional string description = 3;
+}
+
+message UpdateShortcutRequest {
+    optional string uid = 1;
+    optional Alias alias = 2;
+    UpdateShortcutRequestShortcut shortcut = 3;
+}
+
+message UpdateShortcutResponse {
+    optional Shortcut shortcut = 1;
+}

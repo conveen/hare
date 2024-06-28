@@ -1,0 +1,9 @@
+[package]
+name = "hare-control-plane-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+hare-control-plane-service = { path = "../hare-control-plane-service" }
+hare-data-plane-client = { path = "../hare-data-plane-client", features = ["sqlite"] }
+tonic = "0.11"

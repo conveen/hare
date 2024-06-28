@@ -1,0 +1,10 @@
+[package]
+name = "hare-control-plane-service"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+hare-control-plane-model = { path = "../hare-control-plane-model" }
+hare-data-plane-client = { path = "../hare-data-plane-client" }
+thiserror = "1.0"
+tonic = "0.11"
