@@ -1,11 +1,11 @@
 use crate::{
-    error::{self, DataPlaneError},
+    error::{self},
     model::{CommittedAlias, CommittedDestination, CommittedShortcut, CommittedShortcutList},
     pagination::ContinuationToken,
     utils, HareDataPlaneClient, ListShortcutsResponse,
 };
 use hare_common_model::app::conveen::hare::common::pagination::{PaginationContinuation, PaginationRequest};
-use sqlx::error::DatabaseError;
+use sqlx::{error::DatabaseError, Row};
 
 #[derive(Debug)]
 pub struct HareDataPlaneSqlite {
@@ -49,6 +49,35 @@ impl HareDataPlaneSqlite {
                 },
                 _ => error::DataPlaneError::from(err),
             })
+    }
+
+    /// Get all aliases for list of destinations.
+    ///
+    /// Helper method for [`list_shortcuts`] that builds an IN filter for the WHERE clause.
+    /// SQLx does not support a generic form of binding a `Vec<T>` to a list in a SQL query (like
+    /// with IN).
+    async fn get_aliases_for_destinations(
+        &self,
+        destinations: &Vec<CommittedDestination>,
+    ) -> error::DataPlaneResult<Vec<CommittedAlias>> {
+        let mut query_builder = sqlx::query_builder::QueryBuilder::new(
+            "SELECT destination_uid, NULL as \"uid?: String\", name FROM alias WHERE destination_uid IN (",
+        );
+        let mut filter_builder = query_builder.separated(",");
+        destinations.iter().for_each(|destination| {
+            filter_builder.push_bind(destination.uid.as_str());
+        });
+        filter_builder.push_unseparated(") ORDER BY destination_uid");
+        query_builder
+            .build()
+            .map(|row| CommittedAlias {
+                destination_uid: Some(row.get::<String, &str>("destination_uid")),
+                uid: None,
+                name: row.get::<String, &str>("name"),
+            })
+            .fetch_all(&self.connection)
+            .await
+            .map_err(error::DataPlaneError::from)
     }
 }
 
@@ -147,7 +176,6 @@ impl HareDataPlaneClient for HareDataPlaneSqlite {
 
         let mut aliases_deleted = std::collections::HashSet::with_capacity(aliases_set.len());
         for alias in aliases_set.iter() {
-            // TODO catch error if alias does not exist
             sqlx::query("DELETE FROM alias WHERE destination_uid = ? AND name = ?")
                 .bind(uid)
                 .bind(alias)
@@ -160,22 +188,24 @@ impl HareDataPlaneClient for HareDataPlaneSqlite {
     }
 
     async fn delete_shortcut(&self, uid: &str) -> error::DataPlaneResult<()> {
-        // TODO: Map from database error for destination not exist to NotFound
         sqlx::query!("DELETE FROM destination WHERE uid = ?", uid).execute(&self.connection).await?;
 
         Ok(())
     }
 
     async fn get_default_fallback_shortcut(&self) -> error::DataPlaneResult<CommittedShortcut> {
-        // TODO: Map from database error for destination not exist to NotFound
         let destination: CommittedDestination =
             sqlx::query_as!(CommittedDestination, "SELECT * FROM destination WHERE is_default_fallback = TRUE",)
                 .fetch_one(&self.connection)
-                .await?;
+                .await
+                .map_err(|err| match err {
+                    sqlx::Error::RowNotFound => error::DataPlaneError::NotFound { resource_id: String::new() },
+                    _ => error::DataPlaneError::from(err),
+                })?;
 
         let aliases = sqlx::query_as!(
             CommittedAlias,
-            "SELECT NULL as \"destination_uid?: String\", NULL AS \"uid?: String\", name FROM alias WHERE destination_uid = ?",
+            "SELECT destination_uid, NULL AS \"uid?: String\", name FROM alias WHERE destination_uid = ?",
             destination.uid
         )
         .fetch_all(&self.connection)
@@ -184,11 +214,14 @@ impl HareDataPlaneClient for HareDataPlaneSqlite {
     }
 
     async fn get_shortcut_by_uid(&self, uid: &str) -> error::DataPlaneResult<CommittedShortcut> {
-        // TODO: Map from database error for destination not exist to NotFound
         let destination: CommittedDestination =
             sqlx::query_as!(CommittedDestination, "SELECT * FROM destination WHERE uid = ?", uid)
                 .fetch_one(&self.connection)
-                .await?;
+                .await
+                .map_err(|err| match err {
+                    sqlx::Error::RowNotFound => error::DataPlaneError::NotFound { resource_id: uid.to_string() },
+                    _ => error::DataPlaneError::from(err),
+                })?;
 
         let aliases = sqlx::query_as!(
             CommittedAlias,
@@ -228,6 +261,12 @@ impl HareDataPlaneClient for HareDataPlaneSqlite {
     ) -> error::DataPlaneResult<ListShortcutsResponse> {
         let continuation_token = if pagination_request.continuation_token.is_some() {
             ContinuationToken::try_from_str(&self.codec, pagination_request.continuation_token.as_ref().unwrap())
+                .map_err(|err| match err {
+                    error::DataPlaneError::Serde(_) => {
+                        error::DataPlaneError::InvalidArgument { message: "Invalid continuation token".to_string() }
+                    },
+                    _ => error::DataPlaneError::from(err),
+                })
         } else if let Some(page_size) = pagination_request.page_size {
             Ok(ContinuationToken::new(page_size as u32, 0))
         } else {
@@ -252,18 +291,8 @@ impl HareDataPlaneClient for HareDataPlaneSqlite {
             });
         }
 
-        let destination_uids =
-            destinations.iter().map(|destination| destination.uid.as_ref()).collect::<Vec<&str>>().join(",");
-        let aliases: Vec<CommittedAlias> = sqlx::query_as!(
-            CommittedAlias,
-            "SELECT destination_uid, NULL as \"uid?: String\", name FROM alias WHERE destination_uid IN (?) ORDER BY destination_uid",
-            // Is not SQL injection risk because destinations are generated from query above
-            destination_uids,
-        )
-        .fetch_all(&self.connection)
-        .await?;
         // Each destination must have at least one alias, so the map size is guaranteed to have same capacity as destinations.
-        let mut aliases_by_destination = aliases.into_iter().fold(
+        let mut aliases_by_destination = self.get_aliases_for_destinations(&destinations).await?.into_iter().fold(
             std::collections::HashMap::<String, Vec<CommittedAlias>>::with_capacity(num_destinations),
             |mut acc, alias| {
                 let destination_uid = alias.destination_uid.as_ref().unwrap();
@@ -288,7 +317,6 @@ impl HareDataPlaneClient for HareDataPlaneSqlite {
                     })
                     .collect(),
             },
-            // TODO: verify that offset + num_destinations doesn't include last destination from previous page
             pagination: PaginationContinuation {
                 next_continuation_token: Some(
                     ContinuationToken::new(

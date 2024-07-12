@@ -1,3 +1,4 @@
+use hare_common_model::app::conveen::hare::common::pagination::PaginationRequest;
 use hare_data_plane_client::{
     error::{DataPlaneError, DataPlaneResult},
     sqlite::HareDataPlaneSqlite,
@@ -13,11 +14,13 @@ fn test_when_bootstrap_then_ok() -> DataPlaneResult<()> {
 }
 
 async fn create_ddg_shortcut(client: &HareDataPlaneSqlite) -> DataPlaneResult<String> {
-    client.create_shortcut("https://duckduckgo.com/?q={}", true, false, "DuckDuckGo search", &["d", "duckduckgo"]).await
+    client.create_shortcut("https://duckduckgo.com/?q={}", true, true, "DuckDuckGo search", &["d", "duckduckgo"]).await
 }
 
 #[sqlx::test]
-async fn test_when_add_single_alias_then_exists(connection: sqlx::Pool<sqlx::Sqlite>) -> DataPlaneResult<()> {
+async fn test_add_aliases_for_shortcut_when_add_single_alias_then_exists(
+    connection: sqlx::Pool<sqlx::Sqlite>,
+) -> DataPlaneResult<()> {
     let client = HareDataPlaneSqlite::from_connection(connection);
     let uid = create_ddg_shortcut(&client).await?;
     client.add_aliases_for_shortcut(&uid.as_str(), &["ddg"]).await?;
@@ -27,7 +30,7 @@ async fn test_when_add_single_alias_then_exists(connection: sqlx::Pool<sqlx::Sql
 }
 
 #[sqlx::test]
-async fn test_when_add_multiple_distinct_aliases_then_exists(
+async fn test_add_aliases_for_shortcut_when_add_multiple_distinct_aliases_then_exists(
     connection: sqlx::Pool<sqlx::Sqlite>,
 ) -> DataPlaneResult<()> {
     let client = HareDataPlaneSqlite::from_connection(connection);
@@ -48,7 +51,7 @@ async fn test_when_add_multiple_distinct_aliases_then_exists(
 }
 
 #[sqlx::test]
-async fn test_when_add_multiple_aliases_with_dupes_then_unique(
+async fn test_add_aliases_for_shortcut_when_add_multiple_aliases_with_dupes_then_unique(
     connection: sqlx::Pool<sqlx::Sqlite>,
 ) -> DataPlaneResult<()> {
     let client = HareDataPlaneSqlite::from_connection(connection);
@@ -62,7 +65,9 @@ async fn test_when_add_multiple_aliases_with_dupes_then_unique(
 }
 
 #[sqlx::test]
-async fn test_when_add_to_non_existent_shortcut_then_fail(connection: sqlx::Pool<sqlx::Sqlite>) -> DataPlaneResult<()> {
+async fn test_add_aliases_for_shortcut_when_add_to_non_existent_shortcut_then_fail(
+    connection: sqlx::Pool<sqlx::Sqlite>,
+) -> DataPlaneResult<()> {
     let client = HareDataPlaneSqlite::from_connection(connection);
     match client.add_aliases_for_shortcut("NonExistentShortcut", &["a", "b"]).await.err().unwrap() {
         DataPlaneError::NotFound { resource_id } => {
@@ -74,7 +79,9 @@ async fn test_when_add_to_non_existent_shortcut_then_fail(connection: sqlx::Pool
 }
 
 #[sqlx::test]
-async fn test_when_add_existing_alias_then_fail(connection: sqlx::Pool<sqlx::Sqlite>) -> DataPlaneResult<()> {
+async fn test_add_aliases_for_shortcut_when_add_existing_alias_then_fail(
+    connection: sqlx::Pool<sqlx::Sqlite>,
+) -> DataPlaneResult<()> {
     let client = HareDataPlaneSqlite::from_connection(connection);
     let uid = create_ddg_shortcut(&client).await?;
     match client.add_aliases_for_shortcut(&uid, &["d"]).await.err().unwrap() {
@@ -85,7 +92,7 @@ async fn test_when_add_existing_alias_then_fail(connection: sqlx::Pool<sqlx::Sql
 }
 
 #[sqlx::test]
-async fn test_when_add_multiple_one_existing_alias_then_fail(
+async fn test_add_aliases_for_shortcut_when_add_multiple_one_existing_alias_then_fail(
     connection: sqlx::Pool<sqlx::Sqlite>,
 ) -> DataPlaneResult<()> {
     let client = HareDataPlaneSqlite::from_connection(connection);
@@ -98,7 +105,7 @@ async fn test_when_add_multiple_one_existing_alias_then_fail(
 }
 
 #[sqlx::test]
-async fn test_when_create_shortcut_invalid_url_then_fail(connection: sqlx::Pool<sqlx::Sqlite>) -> DataPlaneResult<()> {
+async fn test_create_shortcut_when_invalid_url_then_fail(connection: sqlx::Pool<sqlx::Sqlite>) -> DataPlaneResult<()> {
     let client = HareDataPlaneSqlite::from_connection(connection);
     match client
         .create_shortcut("ftp://transfer.example.com", false, false, "FTP transfer for example.com", &["transfer"])
@@ -113,7 +120,7 @@ async fn test_when_create_shortcut_invalid_url_then_fail(connection: sqlx::Pool<
 }
 
 #[sqlx::test]
-async fn test_when_create_shortcut_valid_url_then_exists(connection: sqlx::Pool<sqlx::Sqlite>) -> DataPlaneResult<()> {
+async fn test_create_shortcut_when_valid_url_then_exists(connection: sqlx::Pool<sqlx::Sqlite>) -> DataPlaneResult<()> {
     let client = HareDataPlaneSqlite::from_connection(connection);
     let test_cases = vec![
         hare_data_plane_client::model::UncommittedDestination {
@@ -161,7 +168,7 @@ async fn test_when_create_shortcut_valid_url_then_exists(connection: sqlx::Pool<
 }
 
 #[sqlx::test]
-async fn test_when_create_shortcut_url_already_exist_then_fail(
+async fn test_create_shortcut_when_url_already_exist_then_fail(
     connection: sqlx::Pool<sqlx::Sqlite>,
 ) -> DataPlaneResult<()> {
     let client = HareDataPlaneSqlite::from_connection(connection);
@@ -174,7 +181,7 @@ async fn test_when_create_shortcut_url_already_exist_then_fail(
 }
 
 #[sqlx::test]
-async fn test_when_create_shortcut_empty_aliases_then_fail(
+async fn test_create_shortcut_when_empty_aliases_then_fail(
     connection: sqlx::Pool<sqlx::Sqlite>,
 ) -> DataPlaneResult<()> {
     let client = HareDataPlaneSqlite::from_connection(connection);
@@ -186,7 +193,7 @@ async fn test_when_create_shortcut_empty_aliases_then_fail(
 }
 
 #[sqlx::test]
-async fn test_when_delete_aliases_empty_aliases_then_fail(connection: sqlx::Pool<sqlx::Sqlite>) -> DataPlaneResult<()> {
+async fn test_delete_aliases_when_empty_aliases_then_fail(connection: sqlx::Pool<sqlx::Sqlite>) -> DataPlaneResult<()> {
     let client = HareDataPlaneSqlite::from_connection(connection);
     let uid = create_ddg_shortcut(&client).await?;
     assert_eq!(None, client.delete_aliases_for_shortcut(&uid, &[]).await?);
@@ -194,7 +201,7 @@ async fn test_when_delete_aliases_empty_aliases_then_fail(connection: sqlx::Pool
 }
 
 #[sqlx::test]
-async fn test_when_delete_aliases_non_existent_shortcut_then_fail(
+async fn test_delete_aliases_when_non_existent_shortcut_then_fail(
     connection: sqlx::Pool<sqlx::Sqlite>,
 ) -> DataPlaneResult<()> {
     let client = HareDataPlaneSqlite::from_connection(connection);
@@ -206,7 +213,7 @@ async fn test_when_delete_aliases_non_existent_shortcut_then_fail(
 }
 
 #[sqlx::test]
-async fn test_when_delete_aliases_single_alias_one_existing_then_fail(
+async fn test_delete_aliases_when_single_alias_one_existing_then_fail(
     connection: sqlx::Pool<sqlx::Sqlite>,
 ) -> DataPlaneResult<()> {
     let client = HareDataPlaneSqlite::from_connection(connection);
@@ -218,7 +225,7 @@ async fn test_when_delete_aliases_single_alias_one_existing_then_fail(
 }
 
 #[sqlx::test]
-async fn test_when_delete_aliases_more_than_existing_then_fail(
+async fn test_delete_aliases_when_more_than_existing_then_fail(
     connection: sqlx::Pool<sqlx::Sqlite>,
 ) -> DataPlaneResult<()> {
     let client = HareDataPlaneSqlite::from_connection(connection);
@@ -231,9 +238,7 @@ async fn test_when_delete_aliases_more_than_existing_then_fail(
 }
 
 #[sqlx::test]
-async fn test_when_delete_aliases_one_alias_then_deleted(
-    connection: sqlx::Pool<sqlx::Sqlite>,
-) -> DataPlaneResult<()> {
+async fn test_delete_aliases_when_one_alias_then_deleted(connection: sqlx::Pool<sqlx::Sqlite>) -> DataPlaneResult<()> {
     let client = HareDataPlaneSqlite::from_connection(connection);
     let uid = create_ddg_shortcut(&client).await?;
     let deleted_aliases = client.delete_aliases_for_shortcut(&uid, &["d"]).await?.unwrap();
@@ -243,17 +248,286 @@ async fn test_when_delete_aliases_one_alias_then_deleted(
     Ok(())
 }
 
-
 #[sqlx::test]
-async fn test_when_delete_aliases_multiple_aliases_then_deleted(
+async fn test_delete_aliases_when_multiple_aliases_then_deleted(
     connection: sqlx::Pool<sqlx::Sqlite>,
 ) -> DataPlaneResult<()> {
     let client = HareDataPlaneSqlite::from_connection(connection);
-    let uid = client.create_shortcut("https://wikipedia.org", false, false, "Wikipedia main page", &["w", "wp", "wikipedia"]).await?;
+    let uid = client
+        .create_shortcut("https://wikipedia.org", false, false, "Wikipedia main page", &["w", "wp", "wikipedia"])
+        .await?;
     let mut deleted_aliases = client.delete_aliases_for_shortcut(&uid, &["w", "wp"]).await?.unwrap();
     deleted_aliases.sort();
     assert_eq!(vec!["w", "wp"], deleted_aliases);
     let shortcut = client.get_shortcut_by_uid(&uid).await?;
     assert_eq!(vec!["wikipedia"], shortcut.aliases.into_iter().map(|alias| alias.name).collect::<Vec<_>>());
+    Ok(())
+}
+
+#[sqlx::test]
+async fn test_delete_aliases_when_non_existent_then_ok(connection: sqlx::Pool<sqlx::Sqlite>) -> DataPlaneResult<()> {
+    let client = HareDataPlaneSqlite::from_connection(connection);
+    let uid = create_ddg_shortcut(&client).await?;
+    assert_eq!(vec!["w".to_string()], client.delete_aliases_for_shortcut(&uid, &["w"]).await?.unwrap());
+    Ok(())
+}
+
+#[sqlx::test]
+async fn test_delete_shortcut_when_exists_then_deleted(connection: sqlx::Pool<sqlx::Sqlite>) -> DataPlaneResult<()> {
+    let client = HareDataPlaneSqlite::from_connection(connection);
+    let uid = create_ddg_shortcut(&client).await?;
+    client.delete_shortcut(&uid).await?;
+    match client.get_shortcut_by_uid(&uid).await.err().unwrap() {
+        DataPlaneError::NotFound { resource_id } => assert_eq!(uid, resource_id),
+        err => panic!("Unexpected error returned: {:?}", err),
+    }
+    Ok(())
+}
+
+#[sqlx::test]
+async fn test_delete_shortcut_when_not_existent_then_ok(connection: sqlx::Pool<sqlx::Sqlite>) -> DataPlaneResult<()> {
+    let client = HareDataPlaneSqlite::from_connection(connection);
+    assert_eq!((), client.delete_shortcut("NonExistentShortcut").await.unwrap());
+    Ok(())
+}
+
+#[sqlx::test]
+async fn test_get_default_fallback_shortcut_when_exists_then_ok(
+    connection: sqlx::Pool<sqlx::Sqlite>,
+) -> DataPlaneResult<()> {
+    let client = HareDataPlaneSqlite::from_connection(connection);
+    let uid = create_ddg_shortcut(&client).await?;
+    let default_fallback_shortcut = client.get_default_fallback_shortcut().await?;
+    assert_eq!(uid, default_fallback_shortcut.destination.uid);
+    Ok(())
+}
+
+#[sqlx::test]
+async fn test_get_default_fallback_shortcut_when_non_existent_then_fail(
+    connection: sqlx::Pool<sqlx::Sqlite>,
+) -> DataPlaneResult<()> {
+    let client = HareDataPlaneSqlite::from_connection(connection);
+    match client.get_default_fallback_shortcut().await.err().unwrap() {
+        DataPlaneError::NotFound { resource_id: _ } => Ok(()),
+        err => panic!("Unexpected error returned: {:?}", err),
+    }
+}
+
+#[sqlx::test]
+async fn test_get_shortcut_by_uid_when_exists_then_ok(connection: sqlx::Pool<sqlx::Sqlite>) -> DataPlaneResult<()> {
+    let client = HareDataPlaneSqlite::from_connection(connection);
+    let uid = create_ddg_shortcut(&client).await?;
+    let shortcut = client.get_shortcut_by_uid(&uid).await?;
+    assert_eq!(uid, shortcut.destination.uid);
+    assert_eq!(vec!["d", "duckduckgo"], shortcut.aliases.into_iter().map(|alias| alias.name).collect::<Vec<_>>());
+    Ok(())
+}
+
+#[sqlx::test]
+async fn test_get_shortcut_by_uid_when_non_existent_then_fail(
+    connection: sqlx::Pool<sqlx::Sqlite>,
+) -> DataPlaneResult<()> {
+    let client = HareDataPlaneSqlite::from_connection(connection);
+    match client.get_shortcut_by_uid("NonExistentShortcut").await.err().unwrap() {
+        DataPlaneError::NotFound { resource_id } => assert_eq!("NonExistentShortcut".to_string(), resource_id),
+        err => panic!("Unexpected error returned: {:?}", err),
+    }
+    Ok(())
+}
+
+#[sqlx::test]
+async fn test_get_shortcut_by_alias_when_single_alias_exists_then_ok(
+    connection: sqlx::Pool<sqlx::Sqlite>,
+) -> DataPlaneResult<()> {
+    let client = HareDataPlaneSqlite::from_connection(connection);
+    let uid = client.create_shortcut("https://duckduckgo.com/?q={}", true, true, "DuckDuckGo search", &["d"]).await?;
+    let shortcut = client.get_shortcut_by_alias("d").await?;
+    assert_eq!(uid, shortcut.destination.uid);
+    assert_eq!(vec!["d"], shortcut.aliases.into_iter().map(|alias| alias.name).collect::<Vec<_>>());
+    Ok(())
+}
+
+#[sqlx::test]
+async fn test_get_shortcut_by_alias_when_multiple_aliases_exist_then_ok(
+    connection: sqlx::Pool<sqlx::Sqlite>,
+) -> DataPlaneResult<()> {
+    let client = HareDataPlaneSqlite::from_connection(connection);
+    let uid = create_ddg_shortcut(&client).await?;
+    let shortcut = client.get_shortcut_by_alias("duckduckgo").await?;
+    assert_eq!(uid, shortcut.destination.uid);
+    assert_eq!(vec!["d", "duckduckgo"], shortcut.aliases.into_iter().map(|alias| alias.name).collect::<Vec<_>>());
+    Ok(())
+}
+
+#[sqlx::test]
+async fn test_get_shortcut_by_alias_when_non_existent_then_fail(
+    connection: sqlx::Pool<sqlx::Sqlite>,
+) -> DataPlaneResult<()> {
+    let client = HareDataPlaneSqlite::from_connection(connection);
+    match client.get_shortcut_by_alias("NonExistentAlias").await.err().unwrap() {
+        DataPlaneError::NotFound { resource_id } => assert_eq!("NonExistentAlias", resource_id),
+        err => panic!("Unexpected error returned: {:?}", err),
+    }
+    Ok(())
+}
+
+#[sqlx::test]
+async fn test_list_shortcuts_when_no_page_size_token_then_fail(
+    connection: sqlx::Pool<sqlx::Sqlite>,
+) -> DataPlaneResult<()> {
+    let client = HareDataPlaneSqlite::from_connection(connection);
+    match client.list_shortcuts(&PaginationRequest { continuation_token: None, page_size: None }).await.err().unwrap() {
+        DataPlaneError::InvalidArgument { message: _ } => Ok(()),
+        err => panic!("Unexpected error returned: {:?}", err),
+    }
+}
+
+#[sqlx::test]
+async fn test_list_shortcuts_when_invalid_token_then_fail(connection: sqlx::Pool<sqlx::Sqlite>) -> DataPlaneResult<()> {
+    let client = HareDataPlaneSqlite::from_connection(connection);
+    match client
+        .list_shortcuts(&PaginationRequest { continuation_token: Some("InvalidToken".to_string()), page_size: None })
+        .await
+        .err()
+        .unwrap()
+    {
+        DataPlaneError::InvalidArgument { message: _ } => Ok(()),
+        err => panic!("Unexpected error returned: {:?}", err),
+    }
+}
+
+#[sqlx::test]
+async fn test_list_shortcuts_when_no_shortcuts_then_empty(connection: sqlx::Pool<sqlx::Sqlite>) -> DataPlaneResult<()> {
+    let client = HareDataPlaneSqlite::from_connection(connection);
+    let response = client.list_shortcuts(&PaginationRequest { continuation_token: None, page_size: Some(10) }).await?;
+    assert_eq!(0, response.shortcuts.shortcuts.len());
+    assert_eq!(None, response.pagination.next_continuation_token);
+    Ok(())
+}
+
+#[sqlx::test]
+async fn test_list_shortcuts_when_one_shortcut_then_ok(connection: sqlx::Pool<sqlx::Sqlite>) -> DataPlaneResult<()> {
+    let client = HareDataPlaneSqlite::from_connection(connection);
+    let uid = create_ddg_shortcut(&client).await?;
+    let response = client.list_shortcuts(&PaginationRequest { continuation_token: None, page_size: Some(10) }).await?;
+    assert_eq!(1, response.shortcuts.shortcuts.len());
+    assert!(response.pagination.next_continuation_token.is_some());
+    assert_eq!(uid, response.shortcuts.shortcuts.get(0).unwrap().destination.uid);
+    let response = client
+        .list_shortcuts(&PaginationRequest {
+            continuation_token: response.pagination.next_continuation_token,
+            page_size: Some(10),
+        })
+        .await?;
+    assert_eq!(0, response.shortcuts.shortcuts.len());
+    assert_eq!(None, response.pagination.next_continuation_token);
+    Ok(())
+}
+
+#[sqlx::test]
+async fn test_list_shortcuts_when_multiple_shortcuts_then_ok(
+    connection: sqlx::Pool<sqlx::Sqlite>,
+) -> DataPlaneResult<()> {
+    let client = HareDataPlaneSqlite::from_connection(connection);
+    client
+        .create_shortcut("https://duckduckgo.com/?q={}", true, true, "DuckDuckGo search", &["d", "duckduckgo"])
+        .await?;
+    client.create_shortcut("https://google.com/search?q={}", true, false, "Google search", &["g", "google"]).await?;
+    client.create_shortcut("https://wikipedia.org", false, false, "Wikipedia main page", &["wp"]).await?;
+
+    let response = client.list_shortcuts(&PaginationRequest { continuation_token: None, page_size: Some(2) }).await?;
+    assert_eq!(2, response.shortcuts.shortcuts.len());
+    assert!(response.pagination.next_continuation_token.is_some());
+    let response = client
+        .list_shortcuts(&PaginationRequest {
+            continuation_token: response.pagination.next_continuation_token,
+            page_size: Some(10),
+        })
+        .await?;
+    assert_eq!(1, response.shortcuts.shortcuts.len());
+    assert!(response.pagination.next_continuation_token.is_some());
+    let response = client
+        .list_shortcuts(&PaginationRequest {
+            continuation_token: response.pagination.next_continuation_token,
+            page_size: Some(10),
+        })
+        .await?;
+    assert_eq!(0, response.shortcuts.shortcuts.len());
+    assert_eq!(None, response.pagination.next_continuation_token);
+
+    let response = client.list_shortcuts(&PaginationRequest { continuation_token: None, page_size: Some(10) }).await?;
+    assert_eq!(3, response.shortcuts.shortcuts.len());
+    assert!(response.pagination.next_continuation_token.is_some());
+    let response = client
+        .list_shortcuts(&PaginationRequest {
+            continuation_token: response.pagination.next_continuation_token,
+            page_size: None,
+        })
+        .await?;
+    assert_eq!(0, response.shortcuts.shortcuts.len());
+    assert_eq!(None, response.pagination.next_continuation_token);
+    Ok(())
+}
+
+#[sqlx::test]
+async fn test_update_shortcut_when_uid_alias_none_then_fail(
+    connection: sqlx::Pool<sqlx::Sqlite>,
+) -> DataPlaneResult<()> {
+    let client = HareDataPlaneSqlite::from_connection(connection);
+    match client.update_shortcut(None, None, None, None, None, None).await.err().unwrap() {
+        DataPlaneError::InvalidArgument { message: _ } => Ok(()),
+        err => panic!("Unexpected error returned: {:?}", err),
+    }
+}
+
+#[sqlx::test]
+async fn test_update_shortcut_when_uid_non_existent_then_fail(
+    connection: sqlx::Pool<sqlx::Sqlite>,
+) -> DataPlaneResult<()> {
+    let client = HareDataPlaneSqlite::from_connection(connection);
+    match client.update_shortcut(Some("NonExistentShortcut"), None, None, None, None, None).await.err().unwrap() {
+        DataPlaneError::NotFound { resource_id } => assert_eq!("NonExistentShortcut", resource_id),
+        err => panic!("Unexpected error returned: {:?}", err),
+    }
+    Ok(())
+}
+
+#[sqlx::test]
+async fn test_update_shortcut_when_alias_non_existent_then_fail(
+    connection: sqlx::Pool<sqlx::Sqlite>,
+) -> DataPlaneResult<()> {
+    let client = HareDataPlaneSqlite::from_connection(connection);
+    match client.update_shortcut(None, Some("d"), None, None, None, None).await.err().unwrap() {
+        DataPlaneError::NotFound { resource_id } => assert_eq!("d", resource_id),
+        err => panic!("Unexpected error returned: {:?}", err),
+    }
+    Ok(())
+}
+
+#[sqlx::test]
+async fn test_update_shortcut_when_nothing_updated_then_matches(
+    connection: sqlx::Pool<sqlx::Sqlite>,
+) -> DataPlaneResult<()> {
+    let client = HareDataPlaneSqlite::from_connection(connection);
+    let uid = create_ddg_shortcut(&client).await?;
+    let original = client.get_shortcut_by_uid(&uid).await?;
+    let updated = client.update_shortcut(Some(&uid), None, None, None, None, None).await?.unwrap();
+    assert_eq!(original.destination, updated.destination);
+    assert_eq!(original.aliases, updated.aliases);
+    Ok(())
+}
+
+#[sqlx::test]
+async fn test_update_shortcut_when_updated_then_matches(connection: sqlx::Pool<sqlx::Sqlite>) -> DataPlaneResult<()> {
+    let client = HareDataPlaneSqlite::from_connection(connection);
+    let uid = create_ddg_shortcut(&client).await?;
+    let original = client.get_shortcut_by_uid(&uid).await?;
+    let updated = client
+        .update_shortcut(Some(&uid), None, None, None, None, Some("New description for shortcut"))
+        .await?
+        .unwrap();
+    assert_eq!("DuckDuckGo search", original.destination.description);
+    assert_eq!("New description for shortcut", updated.destination.description);
+    assert_eq!(original.aliases, updated.aliases);
     Ok(())
 }
