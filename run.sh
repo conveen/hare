@@ -50,10 +50,10 @@ run-in-container() {
 		--rm \
          ${INTERACTIVE_FLAGS} \
 		-u ${USERNAME} \
-        -e "DATABASE_URL" \
+        -e "CROSS_CONTAINER_IN_CONTAINER=true" \
+        -e "DATABASE_URL=sqlite:///project/src/hare-data-plane-client/hare.db" \
         -e "RUST_BACKTRACE" \
         -e "RUST_LOG" \
-        -e "CROSS_CONTAINER_IN_CONTAINER=true" \
         -v /var/run/docker.sock:/var/run/docker.sock \
 		-v $(pwd):/project \
 		-w /project \
