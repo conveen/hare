@@ -15,7 +15,7 @@ impl<'a> From<ControlPlaneAliasList<'a>> for Vec<&'a str> {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct HareControlPlaneService<D>
 where
     D: HareDataPlaneClient + Send + Sync + 'static,
@@ -26,6 +26,15 @@ where
 impl<D: HareDataPlaneClient + Send + Sync + 'static> HareControlPlaneService<D> {
     fn get_data_plane_client<T>(request: &tonic::Request<T>) -> &D {
         request.extensions().get::<D>().expect("Data plane client missing from request extensions")
+    }
+}
+
+impl<D> Default for HareControlPlaneService<D>
+where
+    D: HareDataPlaneClient + Send + Sync + 'static,
+{
+    fn default() -> Self {
+        Self { data_plane_client: PhantomData }
     }
 }
 
@@ -75,7 +84,7 @@ impl<D: HareDataPlaneClient + Send + Sync + 'static> HareControlPlane for HareCo
             .as_ref()
             .ok_or_else(|| tonic::Status::invalid_argument("Must provide the alias to delete"))?;
         Self::get_data_plane_client(&request)
-            .delete_aliases_for_shortcut(&request.get_ref().uid, &vec![alias.name.as_str()])
+            .delete_aliases_for_shortcut(&request.get_ref().uid, &[alias.name.as_str()])
             .await?;
 
         Ok(tonic::Response::new(()))
@@ -158,7 +167,7 @@ impl<D: HareDataPlaneClient + Send + Sync + 'static> HareControlPlane for HareCo
         &self,
         request: tonic::Request<hare_control_plane_types::UpdateShortcutRequest>,
     ) -> std::result::Result<tonic::Response<hare_control_plane_types::UpdateShortcutResponse>, tonic::Status> {
-        let shortcut = if let Some(&ref request_shortcut) = request.get_ref().shortcut.as_ref() {
+        let shortcut = if let Some(request_shortcut) = request.get_ref().shortcut.as_ref() {
             Self::get_data_plane_client(&request)
                 .update_shortcut(
                     request.get_ref().uid.as_deref(),

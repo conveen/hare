@@ -28,6 +28,6 @@ impl ContinuationToken {
     }
 
     pub fn try_to_string<E: base64::engine::Engine>(&self, encoder: &E) -> error::DataPlaneResult<String> {
-        Ok(encoder.encode(&serde_json::to_vec(&self)?))
+        Ok(encoder.encode(serde_json::to_vec(&self)?))
     }
 }

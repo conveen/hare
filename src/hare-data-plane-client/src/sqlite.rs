@@ -58,7 +58,7 @@ impl HareDataPlaneSqlite {
     /// with IN).
     async fn get_aliases_for_destinations(
         &self,
-        destinations: &Vec<CommittedDestination>,
+        destinations: &[CommittedDestination],
     ) -> error::DataPlaneResult<Vec<CommittedAlias>> {
         let mut query_builder = sqlx::query_builder::QueryBuilder::new(
             "SELECT destination_uid, NULL as \"uid?: String\", name FROM alias WHERE destination_uid IN (",
@@ -242,7 +242,7 @@ impl HareDataPlaneClient for HareDataPlaneSqlite {
             .fetch_all(&self.connection)
             .await?;
 
-        if aliases.len() == 0 {
+        if aliases.is_empty() {
             return Err(error::DataPlaneError::NotFound { resource_id: alias.to_string() });
         }
 
@@ -265,7 +265,7 @@ impl HareDataPlaneClient for HareDataPlaneSqlite {
                     error::DataPlaneError::Serde(_) => {
                         error::DataPlaneError::InvalidArgument { message: "Invalid continuation token".to_string() }
                     },
-                    _ => error::DataPlaneError::from(err),
+                    _ => err,
                 })
         } else if let Some(page_size) = pagination_request.page_size {
             Ok(ContinuationToken::new(page_size as u32, 0))
