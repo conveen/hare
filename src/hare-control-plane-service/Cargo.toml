@@ -8,3 +8,5 @@ hare-control-plane-model = { path = "../hare-control-plane-model" }
 hare-data-plane-client = { path = "../hare-data-plane-client" }
 thiserror = { workspace = true }
 tonic = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
