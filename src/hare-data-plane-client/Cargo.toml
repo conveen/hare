@@ -16,4 +16,4 @@ sqlx = { version = "0.7", default-features = false, features = [ "macros", "runt
 thiserror = { workspace = true }
 tonic = { workspace = true }
 url = "2"
-uuid = { version = "1.5.0", default-features = false, features = [ "fast-rng", "std", "v4" ] }
+uuid = { workspace = true }
