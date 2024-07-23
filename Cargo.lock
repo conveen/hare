@@ -573,6 +573,7 @@ dependencies = [
  "sqlx",
  "thiserror",
  "tonic",
+ "tracing",
  "url",
  "uuid",
 ]

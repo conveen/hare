@@ -268,7 +268,7 @@ async fn test_delete_aliases_when_multiple_aliases_then_deleted(
 async fn test_delete_aliases_when_non_existent_then_ok(connection: sqlx::Pool<sqlx::Sqlite>) -> DataPlaneResult<()> {
     let client = HareDataPlaneSqlite::from_connection(connection);
     let uid = create_ddg_shortcut(&client).await?;
-    assert_eq!(vec!["w".to_string()], client.delete_aliases_for_shortcut(&uid, &["w"]).await?.unwrap());
+    assert_eq!(Vec::<String>::new(), client.delete_aliases_for_shortcut(&uid, &["w"]).await?.unwrap());
     Ok(())
 }
 
