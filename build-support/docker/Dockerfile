@@ -57,8 +57,57 @@ COPY build-support/docker/install-protobuf-tools.sh /build-support/docker/instal
 RUN /build-support/docker/install-protobuf-tools.sh
 
 
-FROM rust_base as build
+FROM rust_base AS build
 
 ENTRYPOINT ["./run.sh"]
 
 CMD ["build"]
+
+FROM build AS release_build
+
+# Create dedicated run-as user
+RUN adduser \
+    --disabled-password \
+    --gecos "" \
+    --home /nonexistent \
+    --shell /sbin/nologin \
+    --no-create-home \
+    --uid 10001 \
+    hare
+
+WORKDIR /build
+
+COPY ./proto ./proto
+COPY ./src ./src
+COPY Cargo.lock .
+COPY Cargo.toml .
+
+RUN chown -R $USERNAME:$USERNAME /build
+# Create the database file
+RUN sudo -Hiu $USERNAME bash -c 'cd /build && DATABASE_URL=sqlite:///build/hare.db \$HOME/.cargo/bin/cargo sqlx database setup --source src/hare-data-plane-client/migrations/ --sqlite-create-db-wal false'
+# Compile the server
+RUN sudo -Hiu $USERNAME bash -c 'cd /build && DATABASE_URL=sqlite:///build/hare.db \$HOME/.cargo/bin/cargo build --profile release-fat-lto --target x86_64-unknown-linux-musl -p hare-control-plane-server'
+# Create app directory with server and database file owned by run-as user
+RUN mkdir app
+RUN cp /build/target/x86_64-unknown-linux-musl/release-fat-lto/hare-control-plane-server app/hare-control-plane-server
+RUN chmod 555 app/hare-control-plane-server
+RUN cp /build/hare.db app/hare.db
+RUN chmod 644 app/hare.db
+RUN chown -R $USERNAME:$USERNAME app/
+
+FROM scratch AS release
+
+COPY --from=release_build /etc/passwd /etc/passwd
+COPY --from=release_build /etc/group /etc/group
+
+COPY --from=release_build --chown=hare:hare /build/app/ /app/
+
+WORKDIR /app
+
+USER hare:hare
+
+ENV DATABASE_URL="/app/hare.db"
+ENV RUST_LOG=debug,h2=info,sqlx=info
+
+ENTRYPOINT [ "/app/hare-control-plane-server" ]
+CMD [ "0.0.0.0:8000" ]

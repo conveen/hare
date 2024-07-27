@@ -22,6 +22,12 @@ BUILD_IMAGE_URL="${BUILD_IMAGE_REGISTRY}/conveen/$(basename $(pwd))"
 BUILD_IMAGE_TAG="build"
 # Target stage of the build container image
 BUILD_TARGET_STAGE="build"
+# URL of the release container image, including the registry hostname and image path
+RELEASE_IMAGE_URL="${BUILD_IMAGE_URL}"
+# Target stage of the release container image
+RELEASE_TARGET_STAGE="release"
+# Tag of the release container image
+RELEASE_IMAGE_TAG="release"
 
 # Username and UID of executing user
 USERID="$(id -u)"

@@ -44,6 +44,7 @@ run-push-base() {
 }
 
 run-in-container() {
+    local DATABASE_URL="${DATABASE_URL:-sqlite:///project/src/hare-data-plane-client/hare.db}"
     # If input device is not a TTY don't run with `-it` flags
     local INTERACTIVE_FLAGS="$(test -t 0 && echo '-it' || echo '')"
     ${CONTAINER_RUNTIME} run \
@@ -51,14 +52,30 @@ run-in-container() {
          ${INTERACTIVE_FLAGS} \
 		-u ${USERNAME} \
         -e "CROSS_CONTAINER_IN_CONTAINER=true" \
-        -e "DATABASE_URL=sqlite:///project/src/hare-data-plane-client/hare.db" \
+        -e "DATABASE_URL=${DATABASE_URL}" \
         -e "RUST_BACKTRACE" \
         -e "RUST_LOG" \
+        -v ${HOME}/.cargo/git:/home/${USERNAME}/.cargo/git \
+        -v ${HOME}/.cargo/registry:/home/${USERNAME}/.cargo/registry \
         -v /var/run/docker.sock:/var/run/docker.sock \
 		-v $(pwd):/project \
 		-w /project \
 		${BUILD_IMAGE_URL}:${BUILD_IMAGE_TAG} \
         --local "${@}"
+}
+
+run-build-release() {
+    ${CONTAINER_RUNTIME} build \
+        --target "${RELEASE_TARGET_STAGE}" \
+        -t "${RELEASE_IMAGE_URL}:${RELEASE_IMAGE_TAG}" \
+        -f build-support/docker/Dockerfile \
+        --build-arg DATABASE_URL="sqlite:///build/hare.db" \
+        --build-arg DOCKER_GID="${DOCKER_GID}" \
+        --build-arg RUST_VERSION="${DEFAULT_RUST_VERSION}" \
+        --build-arg UID="${USERID}" \
+        --build-arg USERNAME="${USERNAME}" \
+        "${@}" \
+        .
 }
 
 
@@ -265,6 +282,7 @@ print-usage() {
     echo "subcommands:"
     echo "build             cross-build: compile package (default subcommand)"
     echo "build-base        build the build container image"
+    echo "build-release     build app container with compiled control plane server"
     echo "check             cross-check: check package for errors"
     echo "check-deps        cargo-deny: check dependencies for license compliance, security notices, and trusted sources"
     echo "clean             cargo-clean: remove Cargo build artifacts"
@@ -320,6 +338,7 @@ fi
 if ( \
     [ "${COMMAND}" = "build-base" ] \
     || [ "${COMMAND}" = "push-base" ] \
+    || [ "${COMMAND}" = "build-release" ]
 )
 then
     RUNTIME_CONTEXT="local"
