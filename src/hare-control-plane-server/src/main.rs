@@ -1,6 +1,6 @@
 use tracing::{debug, error, info};
 
-use hare_control_plane_model::app::conveen::hare::control_plane::hare_control_plane_server::HareControlPlaneServer;
+use hare_control_plane_model::server::HareControlPlaneServer;
 use hare_control_plane_service::{request_id::request_id_interceptor, service::HareControlPlaneService};
 use hare_data_plane_client::{sqlite::HareDataPlaneSqlite, HareDataPlaneClient};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};

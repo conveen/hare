@@ -6,7 +6,7 @@ mod utils;
 #[cfg(feature = "sqlite")]
 pub mod sqlite;
 
-use hare_common_model::app::conveen::hare::common::pagination::{PaginationContinuation, PaginationRequest};
+use hare_common_model::pagination::{PaginationContinuation, PaginationRequest};
 
 /// Response type for [`HareDataPlaneClient::list_shortcuts`].
 ///

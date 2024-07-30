@@ -1,11 +1,10 @@
-use hare_control_plane_model::app::conveen::hare::control_plane as hare_control_plane_types;
-use hare_control_plane_model::app::conveen::hare::control_plane::hare_control_plane_server::HareControlPlane;
+use hare_control_plane_model::server::HareControlPlane;
 use hare_data_plane_client::error::DataPlaneError;
 use hare_data_plane_client::HareDataPlaneClient;
 
 use crate::convert::FromDataPlane;
 
-struct ControlPlaneAliasList<'a>(&'a Vec<hare_control_plane_types::Alias>);
+struct ControlPlaneAliasList<'a>(&'a Vec<hare_control_plane_model::Alias>);
 
 impl<'a> From<ControlPlaneAliasList<'a>> for Vec<&'a str> {
     fn from(alias_list: ControlPlaneAliasList<'a>) -> Self {
@@ -63,7 +62,7 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
     #[tracing::instrument]
     async fn add_aliases_for_shortcut(
         &self,
-        request: tonic::Request<hare_control_plane_types::AddAliasesForShortcutRequest>,
+        request: tonic::Request<hare_control_plane_model::AddAliasesForShortcutRequest>,
     ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
         let request_id = Self::get_request_id(&request);
         let aliases: Vec<&str> = ControlPlaneAliasList(&request.get_ref().aliases).into();
@@ -89,8 +88,8 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
     #[tracing::instrument]
     async fn create_shortcut(
         &self,
-        request: tonic::Request<hare_control_plane_types::CreateShortcutRequest>,
-    ) -> std::result::Result<tonic::Response<hare_control_plane_types::CreateShortcutResponse>, tonic::Status> {
+        request: tonic::Request<hare_control_plane_model::CreateShortcutRequest>,
+    ) -> std::result::Result<tonic::Response<hare_control_plane_model::CreateShortcutResponse>, tonic::Status> {
         let request_shortcut = request
             .get_ref()
             .shortcut
@@ -124,7 +123,7 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
             "Created new shortcut",
         );
 
-        Ok(ResponseBuilder::new(hare_control_plane_types::CreateShortcutResponse { uid })
+        Ok(ResponseBuilder::new(hare_control_plane_model::CreateShortcutResponse { uid })
             .with_request_id(request_id)
             .build())
     }
@@ -132,7 +131,7 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
     #[tracing::instrument]
     async fn delete_alias_for_shortcut(
         &self,
-        request: tonic::Request<hare_control_plane_types::DeleteAliasForShortcutRequest>,
+        request: tonic::Request<hare_control_plane_model::DeleteAliasForShortcutRequest>,
     ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
         let alias = request
             .get_ref()
@@ -166,7 +165,7 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
     #[tracing::instrument]
     async fn delete_shortcut(
         &self,
-        request: tonic::Request<hare_control_plane_types::DeleteShortcutRequest>,
+        request: tonic::Request<hare_control_plane_model::DeleteShortcutRequest>,
     ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
         let request_id = Self::get_request_id(&request);
         self.data_plane_client.delete_shortcut(&request.get_ref().uid).await.map_err(|err| {
@@ -191,7 +190,7 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
     async fn get_default_fallback_shortcut(
         &self,
         request: tonic::Request<()>,
-    ) -> std::result::Result<tonic::Response<hare_control_plane_types::GetDefaultFallbackShortcutResponse>, tonic::Status>
+    ) -> std::result::Result<tonic::Response<hare_control_plane_model::GetDefaultFallbackShortcutResponse>, tonic::Status>
     {
         let request_id = Self::get_request_id(&request);
         let shortcut = self.data_plane_client.get_default_fallback_shortcut().await.map_err(|err| {
@@ -206,8 +205,8 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
             err
         })?;
 
-        Ok(ResponseBuilder::new(hare_control_plane_types::GetDefaultFallbackShortcutResponse {
-            shortcut: Some(hare_control_plane_types::Shortcut::convert(shortcut)),
+        Ok(ResponseBuilder::new(hare_control_plane_model::GetDefaultFallbackShortcutResponse {
+            shortcut: Some(hare_control_plane_model::Shortcut::convert(shortcut)),
         })
         .with_request_id(request_id)
         .build())
@@ -216,8 +215,8 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
     #[tracing::instrument]
     async fn get_shortcut(
         &self,
-        request: tonic::Request<hare_control_plane_types::GetShortcutRequest>,
-    ) -> std::result::Result<tonic::Response<hare_control_plane_types::GetShortcutResponse>, tonic::Status> {
+        request: tonic::Request<hare_control_plane_model::GetShortcutRequest>,
+    ) -> std::result::Result<tonic::Response<hare_control_plane_model::GetShortcutResponse>, tonic::Status> {
         let request_id = Self::get_request_id(&request);
         let shortcut = self
             .data_plane_client
@@ -237,8 +236,8 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
                 err
             })?;
 
-        Ok(ResponseBuilder::new(hare_control_plane_types::GetShortcutResponse {
-            shortcut: Some(hare_control_plane_types::Shortcut::convert(shortcut)),
+        Ok(ResponseBuilder::new(hare_control_plane_model::GetShortcutResponse {
+            shortcut: Some(hare_control_plane_model::Shortcut::convert(shortcut)),
         })
         .with_request_id(request_id)
         .build())
@@ -247,8 +246,8 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
     #[tracing::instrument]
     async fn list_shortcuts(
         &self,
-        request: tonic::Request<hare_control_plane_types::ListShortcutsRequest>,
-    ) -> std::result::Result<tonic::Response<hare_control_plane_types::ListShortcutsResponse>, tonic::Status> {
+        request: tonic::Request<hare_control_plane_model::ListShortcutsRequest>,
+    ) -> std::result::Result<tonic::Response<hare_control_plane_model::ListShortcutsResponse>, tonic::Status> {
         let pagination = request
             .get_ref()
             .pagination
@@ -266,8 +265,8 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
             err
         })?;
 
-        Ok(ResponseBuilder::new(hare_control_plane_types::ListShortcutsResponse {
-            shortcuts: Some(hare_control_plane_types::ShortcutList::convert(response.shortcuts)),
+        Ok(ResponseBuilder::new(hare_control_plane_model::ListShortcutsResponse {
+            shortcuts: Some(hare_control_plane_model::ShortcutList::convert(response.shortcuts)),
             pagination_continuation: Some(response.pagination),
         })
         .with_request_id(request_id)
@@ -277,7 +276,7 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
     #[tracing::instrument]
     async fn set_default_fallback_shortcut(
         &self,
-        request: tonic::Request<hare_control_plane_types::SetDefaultFallbackShortcutRequest>,
+        request: tonic::Request<hare_control_plane_model::SetDefaultFallbackShortcutRequest>,
     ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
         let request_id = Self::get_request_id(&request);
         let shortcut = self
@@ -328,8 +327,8 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
     #[tracing::instrument]
     async fn update_shortcut(
         &self,
-        request: tonic::Request<hare_control_plane_types::UpdateShortcutRequest>,
-    ) -> std::result::Result<tonic::Response<hare_control_plane_types::UpdateShortcutResponse>, tonic::Status> {
+        request: tonic::Request<hare_control_plane_model::UpdateShortcutRequest>,
+    ) -> std::result::Result<tonic::Response<hare_control_plane_model::UpdateShortcutResponse>, tonic::Status> {
         let request_id = Self::get_request_id(&request);
         let shortcut = if let Some(request_shortcut) = request.get_ref().shortcut.as_ref() {
             let shortcut = self
@@ -361,8 +360,8 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
         } else {
             None
         };
-        Ok(ResponseBuilder::new(hare_control_plane_types::UpdateShortcutResponse {
-            shortcut: shortcut.map(hare_control_plane_types::Shortcut::convert),
+        Ok(ResponseBuilder::new(hare_control_plane_model::UpdateShortcutResponse {
+            shortcut: shortcut.map(hare_control_plane_model::Shortcut::convert),
         })
         .with_request_id(request_id)
         .build())

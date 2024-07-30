@@ -6,7 +6,7 @@ use crate::{
     pagination::ContinuationToken,
     utils, HareDataPlaneClient, ListShortcutsResponse,
 };
-use hare_common_model::app::conveen::hare::common::pagination::{PaginationContinuation, PaginationRequest};
+use hare_common_model::pagination::{PaginationContinuation, PaginationRequest};
 use sqlx::{error::DatabaseError, Row};
 
 pub struct HareDataPlaneSqlite {

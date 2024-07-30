@@ -1,4 +1,4 @@
-use hare_common_model::app::conveen::hare::common::pagination::PaginationRequest;
+use hare_common_model::pagination::PaginationRequest;
 use hare_data_plane_client::{
     error::{DataPlaneError, DataPlaneResult},
     sqlite::HareDataPlaneSqlite,
