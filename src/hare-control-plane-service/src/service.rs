@@ -1,3 +1,4 @@
+use hare_common_utils as utils;
 use hare_control_plane_model::server::HareControlPlane;
 use hare_data_plane_client::error::DataPlaneError;
 use hare_data_plane_client::HareDataPlaneClient;
@@ -21,10 +22,10 @@ impl<T> ResponseBuilder<T> {
         ResponseBuilder { inner: tonic::Response::new(message) }
     }
 
-    pub fn with_request_id(mut self, request_id: &crate::request_id::RequestId) -> Self {
+    pub fn with_request_id(mut self, request_id: &utils::request_id::RequestId) -> Self {
         self.inner
             .metadata_mut()
-            .insert(crate::request_id::REQUEST_ID_HEADER_NAME, request_id.to_string().parse().unwrap());
+            .insert(utils::request_id::REQUEST_ID_HEADER_NAME, request_id.to_string().parse().unwrap());
         self
     }
 
@@ -52,8 +53,8 @@ impl<D: HareDataPlaneClient + Send + Sync + 'static> HareControlPlaneService<D> 
         HareControlPlaneService { data_plane_client }
     }
 
-    pub fn get_request_id<T>(request: &tonic::Request<T>) -> &crate::request_id::RequestId {
-        request.extensions().get::<crate::request_id::RequestId>().unwrap()
+    pub fn get_request_id<T>(request: &tonic::Request<T>) -> &utils::request_id::RequestId {
+        request.extensions().get::<utils::request_id::RequestId>().unwrap()
     }
 }
 

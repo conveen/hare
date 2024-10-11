@@ -121,6 +121,7 @@ dependencies = [
  "pin-project-lite",
  "rustversion",
  "serde",
+ "serde_urlencoded",
  "sync_wrapper",
  "tower",
  "tower-layer",
@@ -518,6 +519,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hare-common-utils"
+version = "0.1.0"
+dependencies = [
+ "tokio",
+ "tonic",
+ "uuid",
+]
+
+[[package]]
 name = "hare-control-plane-cli"
 version = "0.1.0"
 dependencies = [
@@ -553,6 +563,7 @@ dependencies = [
 name = "hare-control-plane-server"
 version = "0.1.0"
 dependencies = [
+ "hare-common-utils",
  "hare-control-plane-model",
  "hare-control-plane-service",
  "hare-data-plane-client",
@@ -566,9 +577,12 @@ dependencies = [
 name = "hare-control-plane-service"
 version = "0.1.0"
 dependencies = [
+ "hare-common-utils",
  "hare-control-plane-model",
  "hare-data-plane-client",
+ "serde",
  "thiserror",
+ "tokio",
  "tonic",
  "tracing",
  "uuid",
@@ -588,6 +602,19 @@ dependencies = [
  "tracing",
  "url",
  "uuid",
+]
+
+[[package]]
+name = "hare-web-service"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "hare-common-utils",
+ "hare-data-plane-client",
+ "serde",
+ "tokio",
+ "tracing",
+ "url",
 ]
 
 [[package]]
@@ -1375,6 +1402,18 @@ version = "1.0.107"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6b420ce6e3d8bd882e9b243c6eed35dbc9a6110c9769e74b584e0d68d1f20c65"
 dependencies = [
+ "itoa",
+ "ryu",
+ "serde",
+]
+
+[[package]]
+name = "serde_urlencoded"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3491c14715ca2294c4d6a88f15e84739788c1d030eed8c110436aafdaa2f3fd"
+dependencies = [
+ "form_urlencoded",
  "itoa",
  "ryu",
  "serde",

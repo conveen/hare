@@ -85,7 +85,7 @@ impl HareDataPlaneSqlite {
         uid: &str,
         aliases: &'a [&str],
     ) -> error::DataPlaneResult<std::collections::HashSet<&'a str>> {
-        let aliases_set = aliases.into_iter().map(|a| *a).collect::<std::collections::HashSet<_>>();
+        let aliases_set = aliases.iter().copied().collect::<std::collections::HashSet<_>>();
         for alias in &aliases_set {
             self.add_alias_for_shortcut(uid, alias).await?;
             tracing::info!(destination_uid = uid, alias, "Added alias for shortcut",);
@@ -251,7 +251,7 @@ impl HareDataPlaneClient for HareDataPlaneSqlite {
         let mut aliases_deleted = std::collections::HashSet::with_capacity(aliases_set.len());
         for alias in aliases_set.iter() {
             // NOTE: Deleting an alias that does not exist will not throw error in SQLite
-            if sqlx::query("DELETE FROM alias WHERE destination_uid = ? AND name = ? RETURNING *")
+            let rows_affected = sqlx::query("DELETE FROM alias WHERE destination_uid = ? AND name = ? RETURNING *")
                 .bind(uid)
                 .bind(alias)
                 .execute(&self.connection)
@@ -265,9 +265,8 @@ impl HareDataPlaneClient for HareDataPlaneSqlite {
                     );
                     err
                 })?
-                .rows_affected()
-                == 1
-            {
+                .rows_affected();
+            if rows_affected == 1 {
                 tracing::info!(destination_uid = uid, alias, "Deleted alias for shortcut",);
                 aliases_deleted.insert(alias);
             }

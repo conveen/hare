@@ -16,5 +16,5 @@ sqlx = { version = "0.7", default-features = false, features = [ "macros", "runt
 thiserror = { workspace = true }
 tonic = { workspace = true }
 tracing = { workspace = true }
-url = "2"
+url = { workspace = true }
 uuid = { workspace = true }

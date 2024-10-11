@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+hare-common-utils = { path = "../hare-common-utils" }
 hare-control-plane-model = { path = "../hare-control-plane-model" }
 hare-control-plane-service = { path = "../hare-control-plane-service" }
 hare-data-plane-client = { path = "../hare-data-plane-client", features = ["sqlite"] }

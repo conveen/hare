@@ -1,7 +1,8 @@
 use tracing::{debug, error, info};
 
+use hare_common_utils::request_id::request_id_interceptor;
 use hare_control_plane_model::server::HareControlPlaneServer;
-use hare_control_plane_service::{request_id::request_id_interceptor, service::HareControlPlaneService};
+use hare_control_plane_service::service::HareControlPlaneService;
 use hare_data_plane_client::{sqlite::HareDataPlaneSqlite, HareDataPlaneClient};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 

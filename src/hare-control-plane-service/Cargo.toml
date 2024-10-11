@@ -4,9 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+hare-common-utils = { path = "../hare-common-utils" }
 hare-control-plane-model = { path = "../hare-control-plane-model" }
 hare-data-plane-client = { path = "../hare-data-plane-client" }
+serde = { workspace = true }
 thiserror = { workspace = true }
+tokio = { workspace = true }
 tonic = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
