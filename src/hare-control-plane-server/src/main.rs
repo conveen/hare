@@ -1,9 +1,8 @@
-use tracing::{debug, error, info};
-
 use hare_common_utils::request_id::request_id_interceptor;
 use hare_control_plane_model::server::HareControlPlaneServer;
 use hare_control_plane_service::service::HareControlPlaneService;
 use hare_data_plane_client::{sqlite::HareDataPlaneSqlite, HareDataPlaneClient};
+use tracing::{debug, error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 fn configure_logging() {
@@ -29,7 +28,7 @@ async fn get_data_plane_client() -> Result<HareDataPlaneSqlite, Box<dyn std::err
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), tonic::transport::Error> {
     configure_logging();
 
     let address = get_socket_address().unwrap_or_else(|err| {
@@ -51,6 +50,5 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tonic::transport::Server::builder()
         .add_service(HareControlPlaneServer::with_interceptor(hare_control_plane, request_id_interceptor))
         .serve(address)
-        .await?;
-    Ok(())
+        .await
 }

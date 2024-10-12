@@ -194,7 +194,7 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
     ) -> std::result::Result<tonic::Response<hare_control_plane_model::GetDefaultFallbackShortcutResponse>, tonic::Status>
     {
         let request_id = Self::get_request_id(&request);
-        let shortcut = self.data_plane_client.get_default_fallback_shortcut().await.map_err(|err| {
+        let shortcut = self.data_plane_client.get_default_fallback_shortcut().await.inspect_err(|err| {
             match &err {
                 DataPlaneError::NotFound { resource_id: _ } => tracing::error!(request_id = %Self::get_request_id(&request), "No default fallback shortcut defined"),
                 err => tracing::error!(
@@ -203,7 +203,6 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
                     "Failed to get default fallback shortcut",
                 ),
             }
-            err
         })?;
 
         Ok(ResponseBuilder::new(hare_control_plane_model::GetDefaultFallbackShortcutResponse {
@@ -288,7 +287,7 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
                 false,
             )
             .await
-            .map_err(|err| {
+            .inspect_err(|err| {
                 match &err {
                     DataPlaneError::NotFound { resource_id: _ } => tracing::info!(
                         %request_id,
@@ -302,7 +301,6 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
                         "Failed to get existing shortcut for uid",
                     ),
                 }
-                err
             })?;
         self.data_plane_client
             .update_shortcut(Some(&shortcut.destination.uid), None, None, Some(true), Some(true), None)
