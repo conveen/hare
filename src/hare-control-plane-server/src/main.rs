@@ -1,4 +1,4 @@
-use hare_common_utils::request_id::request_id_interceptor;
+use hare_common_utils::request_id::RequestId;
 use hare_control_plane_model::server::HareControlPlaneServer;
 use hare_control_plane_service::service::HareControlPlaneService;
 use hare_data_plane_client::{sqlite::HareDataPlaneSqlite, HareDataPlaneClient};
@@ -25,6 +25,11 @@ async fn get_data_plane_client() -> Result<HareDataPlaneSqlite, Box<dyn std::err
     let data_plane_client = HareDataPlaneSqlite::try_from_url(data_plane_client_url.as_str()).await?;
     debug!("Connected to database at URL: {}", &data_plane_client_url);
     Ok(data_plane_client)
+}
+
+fn request_id_interceptor(mut request: tonic::Request<()>) -> Result<tonic::Request<()>, tonic::Status> {
+    request.extensions_mut().insert(RequestId::default());
+    Ok(request)
 }
 
 #[tokio::main]
