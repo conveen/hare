@@ -1,4 +1,3 @@
-use hare_common_utils::request_id::RequestId;
 use hare_control_plane_model::server::HareControlPlaneServer;
 use hare_control_plane_service::service::HareControlPlaneService;
 use hare_data_plane_client::{sqlite::HareDataPlaneSqlite, HareDataPlaneClient};
@@ -27,11 +26,6 @@ async fn get_data_plane_client() -> Result<HareDataPlaneSqlite, Box<dyn std::err
     Ok(data_plane_client)
 }
 
-fn request_id_interceptor(mut request: tonic::Request<()>) -> Result<tonic::Request<()>, tonic::Status> {
-    request.extensions_mut().insert(RequestId::default());
-    Ok(request)
-}
-
 #[tokio::main]
 async fn main() -> Result<(), tonic::transport::Error> {
     configure_logging();
@@ -53,7 +47,20 @@ async fn main() -> Result<(), tonic::transport::Error> {
     let hare_control_plane = HareControlPlaneService::<HareDataPlaneSqlite>::new(data_plane_client);
     info!("Listening on {}", address.to_string());
     tonic::transport::Server::builder()
-        .add_service(HareControlPlaneServer::with_interceptor(hare_control_plane, request_id_interceptor))
+        // Must come before SetRequestId middleware to ensure clients cannot inject request IDs
+        .layer(hare_common_utils::header::FilterHeadersLayer::new(vec![
+            hare_common_utils::request_id::REQUEST_ID_HEADER_NAME.to_string(),
+        ]))
+        // Assign request ID to each request
+        .layer(tower_http::request_id::SetRequestIdLayer::new(
+            hare_common_utils::request_id::REQUEST_ID_HEADER_NAME.parse().unwrap(),
+            hare_common_utils::request_id::RequestIdGenerator::default(),
+        ))
+        // Propagate request ID header to response
+        .layer(tower_http::request_id::PropagateRequestIdLayer::new(
+            hare_common_utils::request_id::REQUEST_ID_HEADER_NAME.parse().unwrap(),
+        ))
+        .add_service(HareControlPlaneServer::new(hare_control_plane))
         .serve(address)
         .await
 }

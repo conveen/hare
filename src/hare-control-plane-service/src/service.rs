@@ -1,4 +1,3 @@
-use hare_common_utils as utils;
 use hare_control_plane_model::server::HareControlPlane;
 use hare_data_plane_client::error::DataPlaneError;
 use hare_data_plane_client::HareDataPlaneClient;
@@ -10,33 +9,6 @@ struct ControlPlaneAliasList<'a>(&'a Vec<hare_control_plane_model::Alias>);
 impl<'a> From<ControlPlaneAliasList<'a>> for Vec<&'a str> {
     fn from(alias_list: ControlPlaneAliasList<'a>) -> Self {
         alias_list.0.iter().map(|alias| alias.name.as_str()).collect()
-    }
-}
-
-struct ResponseBuilder<T> {
-    inner: tonic::Response<T>,
-}
-
-impl<T> ResponseBuilder<T> {
-    pub fn new(message: T) -> Self {
-        ResponseBuilder { inner: tonic::Response::new(message) }
-    }
-
-    pub fn with_request_id(mut self, request_id: &utils::request_id::RequestId) -> Self {
-        self.inner
-            .metadata_mut()
-            .insert(utils::request_id::REQUEST_ID_HEADER_NAME, request_id.to_string().parse().unwrap());
-        self
-    }
-
-    pub fn build(self) -> tonic::Response<T> {
-        self.inner
-    }
-}
-
-impl ResponseBuilder<()> {
-    pub fn empty() -> Self {
-        Self::new(())
     }
 }
 
@@ -53,8 +25,8 @@ impl<D: HareDataPlaneClient + Send + Sync + 'static> HareControlPlaneService<D> 
         HareControlPlaneService { data_plane_client }
     }
 
-    pub fn get_request_id<T>(request: &tonic::Request<T>) -> &utils::request_id::RequestId {
-        request.extensions().get::<utils::request_id::RequestId>().unwrap()
+    pub fn get_request_id<T>(request: &tonic::Request<T>) -> &str {
+        request.extensions().get::<tower_http::request_id::RequestId>().unwrap().header_value().to_str().unwrap()
     }
 }
 
@@ -69,8 +41,8 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
         let aliases: Vec<&str> = ControlPlaneAliasList(&request.get_ref().aliases).into();
         self.data_plane_client.add_aliases_for_shortcut(&request.get_ref().uid, &aliases).await.map_err(|err| {
             tracing::error!(
-                %err,
                 %request_id,
+                %err,
                 shortcut_uid = request.get_ref().uid,
                 aliases = aliases.join(","),
                 "Failed to add aliases for shortcut",
@@ -83,7 +55,7 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
             "Added aliases for shortcut",
         );
 
-        Ok(ResponseBuilder::empty().with_request_id(request_id).build())
+        Ok(tonic::Response::new(()))
     }
 
     #[tracing::instrument]
@@ -111,8 +83,8 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
             .await
             .map_err(|err| {
                 tracing::error!(
-                    %err,
                     %request_id,
+                    %err,
                     url = &request_shortcut.url,
                     "Failed to create shortcut",
                 );
@@ -124,9 +96,7 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
             "Created new shortcut",
         );
 
-        Ok(ResponseBuilder::new(hare_control_plane_model::CreateShortcutResponse { uid })
-            .with_request_id(request_id)
-            .build())
+        Ok(tonic::Response::new(hare_control_plane_model::CreateShortcutResponse { uid }))
     }
 
     #[tracing::instrument]
@@ -145,8 +115,8 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
             .await
             .map_err(|err| {
                 tracing::error!(
-                    %err,
                     %request_id,
+                    %err,
                     shortcut_uid = request.get_ref().uid,
                     alias = alias.name.as_str(),
                     "Failed to delete alias for shortcut",
@@ -160,7 +130,7 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
             "Deleted alias for shortcut",
         );
 
-        Ok(ResponseBuilder::empty().with_request_id(request_id).build())
+        Ok(tonic::Response::new(()))
     }
 
     #[tracing::instrument]
@@ -171,8 +141,8 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
         let request_id = Self::get_request_id(&request);
         self.data_plane_client.delete_shortcut(&request.get_ref().uid).await.map_err(|err| {
             tracing::error!(
-                %err,
                 %request_id,
+                %err,
                 shortcut_uid = request.get_ref().uid,
                 "Failed to delete shortcut",
             );
@@ -184,7 +154,7 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
             "Deleted shortcut",
         );
 
-        Ok(ResponseBuilder::empty().with_request_id(request_id).build())
+        Ok(tonic::Response::new(()))
     }
 
     #[tracing::instrument]
@@ -194,22 +164,20 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
     ) -> std::result::Result<tonic::Response<hare_control_plane_model::GetDefaultFallbackShortcutResponse>, tonic::Status>
     {
         let request_id = Self::get_request_id(&request);
-        let shortcut = self.data_plane_client.get_default_fallback_shortcut().await.inspect_err(|err| {
-            match &err {
-                DataPlaneError::NotFound { resource_id: _ } => tracing::error!(request_id = %Self::get_request_id(&request), "No default fallback shortcut defined"),
-                err => tracing::error!(
-                    %err,
-                    %request_id,
-                    "Failed to get default fallback shortcut",
-                ),
-            }
+        let shortcut = self.data_plane_client.get_default_fallback_shortcut().await.inspect_err(|err| match &err {
+            DataPlaneError::NotFound { resource_id: _ } => {
+                tracing::error!(request_id = %Self::get_request_id(&request), "No default fallback shortcut defined")
+            },
+            err => tracing::error!(
+                %request_id,
+                %err,
+                "Failed to get default fallback shortcut",
+            ),
         })?;
 
-        Ok(ResponseBuilder::new(hare_control_plane_model::GetDefaultFallbackShortcutResponse {
+        Ok(tonic::Response::new(hare_control_plane_model::GetDefaultFallbackShortcutResponse {
             shortcut: Some(hare_control_plane_model::Shortcut::convert(shortcut)),
-        })
-        .with_request_id(request_id)
-        .build())
+        }))
     }
 
     #[tracing::instrument]
@@ -228,19 +196,17 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
             .await
             .map_err(|err| {
                 tracing::error!(
-                    %err,
                     %request_id,
+                    %err,
                     shortcut_uid = request.get_ref().uid,
                     "Failed to get shortcut",
                 );
                 err
             })?;
 
-        Ok(ResponseBuilder::new(hare_control_plane_model::GetShortcutResponse {
+        Ok(tonic::Response::new(hare_control_plane_model::GetShortcutResponse {
             shortcut: Some(hare_control_plane_model::Shortcut::convert(shortcut)),
-        })
-        .with_request_id(request_id)
-        .build())
+        }))
     }
 
     #[tracing::instrument]
@@ -256,8 +222,8 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
         let request_id = Self::get_request_id(&request);
         let response = self.data_plane_client.list_shortcuts(pagination).await.map_err(|err| {
             tracing::error!(
-                %err,
                 %request_id,
+                %err,
                 pagination.page_size,
                 pagination.continuation_token,
                 "Failed to list shorcuts",
@@ -265,12 +231,10 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
             err
         })?;
 
-        Ok(ResponseBuilder::new(hare_control_plane_model::ListShortcutsResponse {
+        Ok(tonic::Response::new(hare_control_plane_model::ListShortcutsResponse {
             shortcuts: Some(hare_control_plane_model::ShortcutList::convert(response.shortcuts)),
             pagination_continuation: Some(response.pagination),
-        })
-        .with_request_id(request_id)
-        .build())
+        }))
     }
 
     #[tracing::instrument]
@@ -287,28 +251,26 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
                 false,
             )
             .await
-            .inspect_err(|err| {
-                match &err {
-                    DataPlaneError::NotFound { resource_id: _ } => tracing::info!(
-                        %request_id,
-                        shorcut_uid = request.get_ref().uid,
-                        "Attempt to set non-existent shortcut as default fallback",
-                    ),
-                    err => tracing::error!(
-                        %err,
-                        request_id = %Self::get_request_id(&request),
-                        shorcut_uid = request.get_ref().uid,
-                        "Failed to get existing shortcut for uid",
-                    ),
-                }
+            .inspect_err(|err| match &err {
+                DataPlaneError::NotFound { resource_id: _ } => tracing::info!(
+                    %request_id,
+                    shorcut_uid = request.get_ref().uid,
+                    "Attempt to set non-existent shortcut as default fallback",
+                ),
+                err => tracing::error!(
+                    %request_id,
+                    %err,
+                    shorcut_uid = request.get_ref().uid,
+                    "Failed to get existing shortcut for uid",
+                ),
             })?;
         self.data_plane_client
             .update_shortcut(Some(&shortcut.destination.uid), None, None, Some(true), Some(true), None)
             .await
             .map_err(|err| {
                 tracing::error!(
-                    %err,
                     %request_id,
+                    %err,
                     shortcut_uid = request.get_ref().uid,
                     "Failed to set shortcut as default fallback",
                 );
@@ -320,7 +282,7 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
             "Set new default fallback shortcut",
         );
 
-        Ok(ResponseBuilder::empty().with_request_id(request_id).build())
+        Ok(tonic::Response::new(()))
     }
 
     #[tracing::instrument]
@@ -343,8 +305,8 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
                 .await
                 .map_err(|err| {
                     tracing::error!(
-                        %err,
                         %request_id,
+                        %err,
                         shortcut_uid = request.get_ref().uid,
                         "Failed to update shortcut",
                     );
@@ -359,10 +321,8 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
         } else {
             None
         };
-        Ok(ResponseBuilder::new(hare_control_plane_model::UpdateShortcutResponse {
+        Ok(tonic::Response::new(hare_control_plane_model::UpdateShortcutResponse {
             shortcut: shortcut.map(hare_control_plane_model::Shortcut::convert),
-        })
-        .with_request_id(request_id)
-        .build())
+        }))
     }
 }
