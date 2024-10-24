@@ -232,7 +232,7 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
         })?;
 
         Ok(tonic::Response::new(hare_control_plane_model::ListShortcutsResponse {
-            shortcuts: Some(hare_control_plane_model::ShortcutList::convert(response.shortcuts)),
+            shortcuts: Vec::convert(response.shortcuts),
             pagination_continuation: Some(response.pagination),
         }))
     }

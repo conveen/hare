@@ -191,10 +191,6 @@ message Shortcut {
     repeated Alias aliases = 7;
 }
 
-message ShortcutList {
-    repeated Shortcut shortcuts = 1;
-}
-
 /* AddAliasesForShortcut types  */
 message AddAliasesForShortcutRequest {
     string uid = 1;
@@ -249,7 +245,7 @@ message ListShortcutsRequest {
 }
 
 message ListShortcutsResponse {
-    ShortcutList shortcuts = 1;
+    repeated Shortcut shortcuts = 1;
     app.conveen.hare.common.pagination.PaginationContinuation pagination_continuation = 2;
 }
 
