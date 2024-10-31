@@ -5,8 +5,9 @@ edition = "2021"
 
 [dependencies]
 hare-common-model = { path = "../hare-common-model" }
-tonic = { workspace = true, features = ["codegen", "prost"] }
 prost = { workspace = true }
+serde = { workspace = true }
+tonic = { workspace = true, features = ["codegen", "prost"] }
 
 [build-dependencies]
 tonic-build = { workspace = true }

@@ -4,8 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-tonic = { workspace = true, features = ["codegen", "prost"] }
+serde = { workspace = true }
 prost = { workspace = true }
+tonic = { workspace = true, features = ["codegen", "prost"] }
 
 [build-dependencies]
 tonic-build = { workspace = true }
