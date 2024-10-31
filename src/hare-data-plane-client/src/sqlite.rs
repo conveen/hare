@@ -540,11 +540,12 @@ impl HareDataPlaneClient for HareDataPlaneSqlite {
         let update_description = description.unwrap_or(shortcut.destination.description.as_str());
         let destination: CommittedDestination = sqlx::query_as!(
             CommittedDestination,
-            "UPDATE destination SET url = ?, is_fallback = ?, is_default_fallback = ?, description = ? RETURNING *",
+            "UPDATE destination SET url = ?, is_fallback = ?, is_default_fallback = ?, description = ? WHERE uid = ? RETURNING *",
             update_url,
             update_is_fallback,
             update_is_default_fallback,
             update_description,
+            shortcut.destination.uid,
         )
         .fetch_one(&self.connection)
         .await
