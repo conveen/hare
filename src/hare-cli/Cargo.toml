@@ -1,0 +1,15 @@
+[package]
+name = "hare-cli"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { workspace = true, features = [ "derive", "env" ] }
+hare-common-model = { path = "../hare-common-model" }
+hare-common-utils = { path = "../hare-common-utils" }
+hare-control-plane-model = { path = "../hare-control-plane-model" }
+serde_json = { workspace = true }
+tokio = { workspace = true, features = [ "rt-multi-thread" ] }
+tonic = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = [ "env-filter" ] }
