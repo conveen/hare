@@ -6,8 +6,6 @@ pub struct UncommittedDestination {
     pub url: String,
     /// Whether the destination is a fallback.
     pub is_fallback: bool,
-    /// Whether the destination is the default fallback.
-    pub is_default_fallback: bool,
     /// A description of the URL (and parameters).
     pub description: String,
 }
@@ -16,13 +14,13 @@ impl UncommittedDestination {
     /// Create a new [`UncommittedDestination`].
     ///
     /// [num_params](struct@UncommittedDestination#structfield.num_params) is parsed from the URL and cannot be set manually.
-    pub fn new<S: Into<String>>(url: S, is_fallback: bool, is_default_fallback: bool, description: S) -> Self {
-        UncommittedDestination { url: url.into(), is_fallback, is_default_fallback, description: description.into() }
+    pub fn new<S: Into<String>>(url: S, is_fallback: bool, description: S) -> Self {
+        UncommittedDestination { url: url.into(), is_fallback, description: description.into() }
     }
 }
 
 /// Destination that has already been committed to the data plane.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, serde::Deserialize, PartialEq, serde::Serialize)]
 pub struct CommittedDestination {
     /// The unique ID for the destination.
     pub uid: String,
@@ -65,7 +63,7 @@ impl From<String> for UncommittedAlias {
 }
 
 /// Alias that has already been committed to the data plane.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct CommittedAlias {
     // The unique ID of the associated [destination](struct@CommittedDestination).
     pub destination_uid: Option<String>,
@@ -75,8 +73,20 @@ pub struct CommittedAlias {
     pub name: String,
 }
 
+impl PartialOrd for CommittedAlias {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.name.partial_cmp(&other.name)
+    }
+}
+
+impl Ord for CommittedAlias {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.name.cmp(&other.name)
+    }
+}
+
 /// Shortcut that has already been committed to the data plane.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, serde::Deserialize, PartialEq, serde::Serialize)]
 pub struct CommittedShortcut {
     /// The shortcut destination.
     pub destination: CommittedDestination,
@@ -84,7 +94,6 @@ pub struct CommittedShortcut {
     pub aliases: Vec<CommittedAlias>,
 }
 
-// TODO: Remove this type and refactor to Vec<CommittedShortcut>
 /// List of shortcuts that have already been committed to the data plane.
 #[derive(Debug, PartialEq)]
 pub struct CommittedShortcutList {

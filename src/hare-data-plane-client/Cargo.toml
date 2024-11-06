@@ -6,11 +6,15 @@ edition = "2021"
 [features]
 default = ["sqlite"]
 sqlite = ["sqlx", "sqlx/migrate", "sqlx/sqlite"]
+dynamodb = ["aws-config", "aws-sdk-dynamodb", "serde_dynamo"]
 
 [dependencies]
+aws-config = { version = "1", optional = true }
+aws-sdk-dynamodb = { version = "1", optional = true }
 base64 = "0.21.5"
 hare-common-model = { path = "../hare-common-model" }
 serde = { workspace = true }
+serde_dynamo = { version = "4.2", default-features = false, features = ["aws-sdk-dynamodb+1"], optional = true }
 serde_json = { workspace = true }
 sqlx = { version = "0.7", default-features = false, features = [ "macros", "runtime-tokio" ], optional = true }
 thiserror = { workspace = true }

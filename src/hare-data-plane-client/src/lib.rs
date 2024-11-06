@@ -3,6 +3,8 @@ pub mod model;
 mod pagination;
 mod utils;
 
+// #[cfg(feature = "dynamodb")]
+// pub mod dynamodb;
 #[cfg(feature = "sqlite")]
 pub mod sqlite;
 
@@ -28,12 +30,11 @@ pub trait HareDataPlaneClient {
 
     /// Add one or more aliases to a shortcut.
     ///
-    /// Aliases in the request are deduplicated but are not deduplicated with existing aliases, so this function is not idempotent.
-    ///
     /// # Argument Requirements
     ///
     /// * `aliases` must not be empty (at least one alias to add).
     /// * `uid` must correspond to an existing destination.
+    /// * Aliases must be unique.
     ///
     /// # Returns
     ///
@@ -41,47 +42,43 @@ pub trait HareDataPlaneClient {
     ///
     /// # Errors
     ///
-    /// * [INVALID_ARGUMENT](enum@tonic::Code#variant.InvalidArgument): if one or more arguments do not meet the requirements.
-    /// * [ALREADY_EXISTS](enum@tonic::Code#variant.AlreadyExists): if one or more aliases already exist.
-    /// * [NOT_FOUND](enum@tonic::Code#variant.NotFound): if the shortcut does not exist.
+    /// * [`error::DataPlaneError::InvalidArgument`]: if one or more arguments do not meet the requirements.
+    /// * [`error::DataPlaneError::AlreadyExists`]: if one or more aliases already exist.
+    /// * [`error::DataPlaneError::NotFound`]: if the shortcut does not exist.
     async fn add_aliases_for_shortcut(
         &self,
         uid: &str,
         aliases: &[&str],
-    ) -> error::DataPlaneResult<Option<Vec<String>>>;
+    ) -> error::DataPlaneResult<Option<Vec<model::CommittedAlias>>>;
 
     /// Create a new shortcut.
-    ///
-    /// Shortcuts are deduplicated by URL, thus this function is idempotent.
-    /// However, depending on the URL matching logic, it may be possible to submit
-    /// different URLs that are semantically identical (e.g. by changing URL parameter order).
     ///
     /// # Argument Requirements
     ///
     /// * `url` must be an HTTP URL compliant with [RFC-1738](https://www.rfc-editor.org/rfc/rfc1738#section-3.3)
     /// (using the `http` or `https` scheme).
     /// * `aliases` must not be empty (at least one alias to add).
+    /// * Aliases must be unique.
     ///
     /// # Returns
     ///
-    /// The `uid` of the created shortcut's destination.
+    /// The created shortcut.
     ///
     /// # Errors
     ///
-    /// * [INVALID_ARGUMENT](enum@tonic::Code#variant.InvalidArgument): if one or more arguments do not meet the requirements.
-    /// * [ALREADY_EXISTS](enum@tonic::Code#variant.AlreadyExists): if one or more aliases already exist for other shortcut(s).
+    /// * [`error::DataPlaneError::InvalidArgument`]: if one or more arguments do not meet the requirements.
+    /// * [`error::DataPlaneError::AlreadyExists`]: if a shortcut with the same URL Or one or more aliases already exist.
     async fn create_shortcut(
         &self,
         url: &str,
         is_fallback: bool,
-        is_default_fallback: bool,
         description: &str,
         aliases: &[&str],
-    ) -> error::DataPlaneResult<String>;
+    ) -> error::DataPlaneResult<model::CommittedShortcut>;
 
     /// Delete one or more aliases for a shortcut.
     ///
-    /// If one or more aliases does not exist for a shortcut the function will exit successfully (no error raised).
+    /// Non-existent aliases are ignored.
     ///
     /// # Preconditions
     ///
@@ -97,14 +94,14 @@ pub trait HareDataPlaneClient {
     ///
     /// # Errors
     ///
-    /// * [INVALID_ARGUMENT](enum@tonic::Code#variant.InvalidArgument): if one or more arguments do not meet the requirements.
-    /// * [FAILED_PRECONDITION](enum@tonic::Code#variant.FailedPrecondition): if the shortcut only has one existing alias.
-    /// * [NOT_FOUND](enum@tonic::Code#variant.NotFound): if the shortcut does not exist.
+    /// * [`error::DataPlaneError::InvalidArgument`]: if one or more arguments do not meet the requirements.
+    /// * [`error::DataPlaneError::FailedPrecondition`]: if the shortcut only has one existing alias.
+    /// * [`error::DataPlaneError::NotFound`]: if the shortcut does not exist.
     async fn delete_aliases_for_shortcut(
         &self,
         uid: &str,
         aliases: &[&str],
-    ) -> error::DataPlaneResult<Option<Vec<String>>>;
+    ) -> error::DataPlaneResult<Option<Vec<model::CommittedAlias>>>;
 
     /// Delete a shortcut.
     ///
@@ -114,8 +111,8 @@ pub trait HareDataPlaneClient {
     ///
     /// # Errors
     ///
-    /// * [INVALID_ARGUMENT](enum@tonic::Code#variant.InvalidArgument): if one or more arguments do not meet the requirements.
-    /// * [NOT_FOUND](enum@tonic::Code#variant.NotFound): if the shortcut does not exist.
+    /// * [`error::DataPlaneError::InvalidArgument`]: if one or more arguments do not meet the requirements.
+    /// * [`error::DataPlaneError::NotFound`]: if the shortcut does not exist.
     async fn delete_shortcut(&self, uid: &str) -> error::DataPlaneResult<()>;
 
     /// Get the default fallback shortcut.
@@ -126,8 +123,21 @@ pub trait HareDataPlaneClient {
     ///
     /// # Errors
     ///
-    /// * [NOT_FOUND](enum@tonic::Code#variant.NotFound): if the shortcut does not exist.
+    /// * [`error::DataPlaneError::NotFound`]: if the shortcut does not exist.
     async fn get_default_fallback_shortcut(&self) -> error::DataPlaneResult<model::CommittedShortcut>;
+
+    /// Set the default fallback shortcut.
+    ///
+    /// Atomically sets an existing shorcut as the default fallback and unsets the existing defaul fallback.
+    ///
+    /// # Preconditions
+    ///
+    /// There must always be at most one (1) default fallback shortcut.
+    ///
+    /// # Errors
+    ///
+    /// * [`error::DataPlaneError::NotFound`]: if the shortcut does not exist.
+    async fn set_default_fallback_shortcut(&self, uid: &str) -> error::DataPlaneResult<()>;
 
     /// Get shortcut by UID.
     ///
@@ -141,8 +151,8 @@ pub trait HareDataPlaneClient {
     ///
     /// # Errors
     ///
-    /// * [INVALID_ARGUMENT](enum@tonic::Code#variant.InvalidArgument): if one or more arguments do not meet the requirements.
-    /// * [NOT_FOUND](enum@tonic::Code#variant.NotFound): if the shortcut does not exist.
+    /// * [`error::DataPlaneError::InvalidArgument`]: if one or more arguments do not meet the requirements.
+    /// * [`error::DataPlaneError::NotFound`]: if the shortcut does not exist.
     async fn get_shortcut_by_uid(&self, uid: &str) -> error::DataPlaneResult<model::CommittedShortcut>;
 
     /// Get shortcut by alias.
@@ -157,8 +167,8 @@ pub trait HareDataPlaneClient {
     ///
     /// # Errors
     ///
-    /// * [INVALID_ARGUMENT](enum@tonic::Code#variant.InvalidArgument): if one or more arguments do not meet the requirements.
-    /// * [NOT_FOUND](enum@tonic::Code#variant.NotFound): if the shortcut does not exist.
+    /// * [`error::DataPlaneError::InvalidArgument`]: if one or more arguments do not meet the requirements.
+    /// * [`error::DataPlaneError::NotFound`]: if the shortcut does not exist.
     async fn get_shortcut_by_alias(&self, alias: &str) -> error::DataPlaneResult<model::CommittedShortcut>;
 
     /// Get a shortcut by UID or alias, or the default fallback shortcut.
@@ -177,8 +187,8 @@ pub trait HareDataPlaneClient {
     ///
     /// # Errors
     ///
-    /// * [INVALID_ARGUMENT](enum@tonic::Code#variant.InvalidArgument): if one or more arguments do not meet the requirements.
-    /// * [NOT_FOUND](enum@tonic::Code#variant.NotFound): if the shortcut does not exist.
+    /// * [`error::DataPlaneError::InvalidArgument`]: if one or more arguments do not meet the requirements.
+    /// * [`error::DataPlaneError::NotFound`]: if the shortcut does not exist.
     async fn get_shortcut(
         &self,
         uid: Option<&str>,
@@ -200,44 +210,39 @@ pub trait HareDataPlaneClient {
 
     /// List all shorcuts.
     ///
-    /// This function is paginated.
-    /// The [page_token](struct@PaginationRequest#structfield.page_token) format is opaque to the caller and set by the server. Callers must not depend on the format.
-    /// The default and maximum values for [page_size](struct@PaginationRequest#structfield.page_size) are determined by the implementation.
-    /// Once all shortcuts have been returned, [next_page_token](struct@PaginationContinuation#structfield.next_continuation_token) will be empty ([None](enum@std::option::Option)).
+    /// The [`PaginationRequest#structfield.continuation_token`] format is opaque to the caller and set by the server. Callers must not depend on the format.
+    /// The default and maximum values for [`PaginationRequest#structfield.page_size`] are determined by the implementation.
+    /// Once all shortcuts have been returned, [`PaginationContinuation#structfield.next_continuation_token`] will be empty ([None](enum@std::option::Option)).
     ///
     /// # Argument Requirements
     ///
-    /// * [pagination.page_token](struct@PaginationRequest#structfield.page_token) must be a valid token provided by the server.
-    /// * [pagination.page_size](struct@PaginationRequest#structfield.page_size) must be <= the maximum set by the server.
+    /// * [`PaginationRequest#structfield.continuation_token`] must be a valid token provided by the server.
+    /// * [`PaginationRequest#structfield.page_size`] must be <= the maximum set by the server.
     ///
     /// # Returns
     ///
-    /// The (paginated) list of shortcuts and continuation token.
+    /// The list of shortcuts and continuation token.
     ///
     /// # Errors
     ///
-    /// * [INVALID_ARGUMENT](enum@tonic::Code#variant.InvalidArgument): if one or more arguments do not meet the requirements.
+    /// * [`error::DataPlaneError::InvalidArgument`]: if one or more arguments do not meet the requirements.
     async fn list_shortcuts(&self, pagination: &PaginationRequest) -> error::DataPlaneResult<ListShortcutsResponse>;
 
     /// Update a shortcut.
     ///
-    /// [num_params](struct@model::CommittedDestination#structfield.num_params) cannot be set directly, it is generated from `url`.
-    ///
     /// Argument Requirements
     ///
-    /// * One of `uid` or `alias` must be supplied and correspond to an existing destination.
+    /// * `uid` must correspond to an existing destination.
     ///
     /// # Errors
     ///
-    /// * [INVALID_ARGUMENT](enum@tonic::Code#variant.InvalidArgument): if one or more arguments do not meet the requirements.
-    /// * [NOT_FOUND](enum@tonic::Code#variant.NotFound): if the shortcut does not exist.
+    /// * [`error::DataPlaneError::InvalidArgument`]: if one or more arguments do not meet the requirements.
+    /// * [`error::DataPlaneError::NotFound`]: if the shortcut does not exist.
     async fn update_shortcut(
         &self,
-        uid: Option<&str>,
-        alias: Option<&str>,
+        uid: &str,
         url: Option<&str>,
         is_fallback: Option<bool>,
-        is_default_fallback: Option<bool>,
         description: Option<&str>,
-    ) -> error::DataPlaneResult<Option<model::CommittedShortcut>>;
+    ) -> error::DataPlaneResult<model::CommittedShortcut>;
 }
