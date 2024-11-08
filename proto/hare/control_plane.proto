@@ -10,14 +10,17 @@ import "pagination.proto";
 service HareControlPlane {
     /* Add one or more aliases to a shortcut.
      *
-     * Aliases in the request are deduplicated but are not deduplicated with existing aliases, so this function is not idempotent.
+     * Aliases in the request are deduplicated.
+     * If one or more of the provided aliases already exist the request fails and no aliases are added.
      *
-     * Preconditions:
-     *     * The alias(es) must be unique across all shortcuts.
-     * 
      * Argument Requirements:
+     *     * Exactly one of shortcut UID or alias must be provided as a shortcut reference.
+     *     * Shortcut UID must correspond to an existing shortcut, if provided.
+     *     * Alias must correspond to an existing shortcut, if provided.
      *     * Must supply at least one alias to add.
-     *     * Shortcut UID must correspond to an existing shortcut.
+     *
+     * Idempotency:
+     *     * Is idempotent, and subsequent requests after success for the same aliases will fail.
      *
      * Raises:
      *     RESOURCE_EXHAUSTED: if caller is rate-limited.
@@ -25,8 +28,8 @@ service HareControlPlane {
      *     ALREADY_EXISTS: if one or more aliases already exist.
      *     NOT_FOUND: if the shortcut does not exist.
      *     INTERNAL: internal server error.
-      */
-    rpc AddAliasesForShortcut(AddAliasesForShortcutRequest) returns (google.protobuf.Empty);
+     */
+    rpc AddAliasesForShortcut(AddAliasesForShortcutRequest) returns (AddAliasesForShortcutResponse);
 
     /* Create a new shortcut.
      *
@@ -34,33 +37,41 @@ service HareControlPlane {
      * A "fallback" shortcut is one that can be used if the alias provided in the query does not exist.
      * Fallback shortcuts are typically search engines like Duck Duck Go, Google, Bing, internal company search, etc.
      * New shortcuts are not fallbacks by default (`is_default` is set to `false).
-     * Shortcuts are deduplicated by URL, thus this function is idempotent. However, depending on the URL matching logic
+     * Shortcuts must have a unique URL, but depending on the URL matching logic
      * it may be possible to submit different URLs that are semantically identical (e.g. by changing URL parameter order).
      * Clients are encouraged to normalize URL parameter order (e.g. alphabetically) before creating shortcuts.
+     *
+     * Argument Requirements:
+     *     * Shortcut URL must be unique.
+     *     * Must supply at least one alias.
+     *
+     * Idempotency:
+     *     * Is idempotent, and subsequent requests after success using the same URL or aliases will fail.
      *
      * Raises:
      *     RESOURCE_EXHAUSTED: if caller is rate-limited.
      *     INVALID_ARGUMENT: if one or more arguments do not meet the requirements.
-     *     ALREADY_EXISTS: if the shortcut already exists (see above for note about deduplication logic).
+     *     ALREADY_EXISTS: if a shortcut with the same URL or one or more aliases already exist.
      *     INTERNAL: internal server error.
-      */
+     */
     rpc CreateShortcut(CreateShortcutRequest) returns (CreateShortcutResponse);
 
     /* Delete one alias for a shortcut.
-     *
-     * If the alias does not exist for a shortcut the function will exit successfully (no error raised).
      *
      * Preconditions:
      *     * Shortcuts must always have at least one alias.
      * 
      * Argument Requirements:
-     *     * Shortcut UID must correspond to an existing shortcut.
+     *     * Alias must exist.
+     *
+     * Idempotency:
+     *     * Is idempotent, and subsequent requests after success to delete the alias will fail.
      *
      * Raises:
      *     RESOURCE_EXHAUSTED: if caller is rate-limited.
      *     INVALID_ARGUMENT: if one or more arguments do not meet the requirements.
-     *     FAILED_PRECONDITION: if the shortcut only has one existing alias.
-     *     NOT_FOUND: if the shortcut does not exist.
+     *     FAILED_PRECONDITION: if the shortcut referenced only has one existing alias.
+     *     NOT_FOUND: if the alias does not exist.
      *     INTERNAL: internal server error.
      */
     rpc DeleteAliasForShortcut(DeleteAliasForShortcutRequest) returns (google.protobuf.Empty);
@@ -68,7 +79,12 @@ service HareControlPlane {
     /* Delete a shortcut.
      *
      * Argument Requirements:
-     *     * Shortcut UID must correspond to an existing shortcut.
+     *     * Exactly one of shortcut UID or alias must be provided as a shortcut reference.
+     *     * Shortcut UID must correspond to an existing shortcut, if provided.
+     *     * Alias must correspond to an existing shortcut, if provided.
+     *
+     * Idempotency:
+     *     * Is idempotent, and subsequent requests after success to delete the shortcut will fail.
      *
      * Raises:
      *     RESOURCE_EXHAUSTED: if caller is rate-limited.
@@ -87,7 +103,7 @@ service HareControlPlane {
      *
      * Raises:
      *     RESOURCE_EXHAUSTED: if caller is rate-limited.
-     *     NOT_FOUND: if there is no default fallback shortcut.
+     *     FAILED_PRECONDITION: if there is no default fallback shortcut.
      *     INTERNAL: internal server error.
      */
     rpc GetDefaultFallbackShortcut(google.protobuf.Empty) returns (GetDefaultFallbackShortcutResponse);
@@ -95,14 +111,14 @@ service HareControlPlane {
     /* Get a shortcut.
      *
      * Argument Requirements:
-     *     * Either a shortcut UID or alias must be provided.
-     *     * Shortcut UID must correspond to an existing shortcut.
-     *     * Alias must correspond to an existing shortcut.
+     *     * Exactly one of shortcut UID or alias must be provided as a shortcut reference.
+     *     * Shortcut UID must correspond to an existing shortcut, if provided.
+     *     * Alias must correspond to an existing shortcut, if provided.
      *
      * Raises:
      *     RESOURCE_EXHAUSTED: if caller is rate-limited.
      *     INVALID_ARGUMENT: if one or more arguments do not meet the requirements.
-     *     NOT_FOUND: if the shortcut does not exist.
+     *     NOT_FOUND: if the shortcut referenced (via UID or alias) does not exist.
      *     INTERNAL: internal server error.
      */
     rpc GetShortcut(GetShortcutRequest) returns (GetShortcutResponse);
@@ -116,7 +132,6 @@ service HareControlPlane {
      *
      * Argument Requirements:
      *     * Page token must be a valid token provided by the server.
-     *     * Page size must be <= the maximum set by the server.
      *
      * Raises:
      *     RESOURCE_EXHAUSTED: if caller is rate-limited.
@@ -133,13 +148,13 @@ service HareControlPlane {
      *     * There can only ever be one (1) default fallback shortcut, having more than one is undefined behavior.
      *
      * Argument Requirements:
-     *     * Either a shortcut UID or alias must be provided.
-     *     * Shortcut UID must correspond to an existing shortcut.
-     *     * Alias must correspond to an existing shortcut.
+     *     * Exactly one of shortcut UID or alias must be provided as a shortcut reference.
+     *     * Shortcut UID must correspond to an existing shortcut, if provided.
+     *     * Alias must correspond to an existing shortcut, if provided.
      *
      * Raises:
      *     RESOURCE_EXHAUSTED: if caller is rate-limited.
-     *     NOT_FOUND: if the shortcut does not exist.
+     *     NOT_FOUND: if the shortcut referenced (via UID or alias) does not exist.
      *     INTERNAL: internal server error.
      */
     rpc SetDefaultFallbackShortcut(SetDefaultFallbackShortcutRequest) returns (google.protobuf.Empty);
@@ -149,9 +164,9 @@ service HareControlPlane {
      * Only the fields present on the shortcut and non-default (non-`null`) will be updated.
      *
      * Argument Requirements:
-     *     * Either a shortcut UID or alias must be provided.
-     *     * Shortcut UID must correspond to an existing shortcut.
-     *     * Alias must correspond to an existing shortcut.
+     *     * Exactly one of shortcut UID or alias must be provided as a shortcut reference.
+     *     * Shortcut UID must correspond to an existing shortcut, if provided.
+     *     * Alias must correspond to an existing shortcut, if provided.
      *
      * Raises:
      *     RESOURCE_EXHAUSTED: if caller is rate-limited.
@@ -161,7 +176,7 @@ service HareControlPlane {
     rpc UpdateShortcut(UpdateShortcutRequest) returns (UpdateShortcutResponse);
 }
 
-/* Alias for a shortcut
+/* Alias for a shortcut.
  * 
  * An alias is a short name/nickname/slug for a shortcut.
  * They are used in search requests to resolve the shortcut, and make queries shorter to type.
@@ -172,7 +187,7 @@ message Alias {
     string name = 2;
 }
 
-/* Shortcut
+/* Shortcut.
  * 
  * A shortcut is used to respond to queries by redirecting to a URL.
  * They contain enough information to construct a redirect URL given an alias and zero or more parameters.
@@ -191,10 +206,21 @@ message Shortcut {
     repeated Alias aliases = 7;
 }
 
-/* AddAliasesForShortcut types  */
+/* Utility type for operations that take exactly one of shortcut UID or alias. */
+message ShortcutReference {
+    oneof reference {
+        string uid = 1;
+        string alias = 2;
+    }
+}
+
 message AddAliasesForShortcutRequest {
-    string uid = 1;
+    ShortcutReference shortcut_ref = 1;
     repeated Alias aliases = 2;
+}
+
+message AddAliasesForShortcutResponse {
+    repeated Alias aliases = 1;
 }
 
 /* CreateShortcut types  */
@@ -210,36 +236,29 @@ message CreateShortcutRequest {
 }
 
 message CreateShortcutResponse {
-    string uid = 1;
+    Shortcut shortcut = 1;
 }
 
-/* DeleteAliasForShortcut types  */
 message DeleteAliasForShortcutRequest {
-    string uid = 1;
-    Alias alias = 2;
+    string alias = 1;
 }
 
-/* DeleteShortcut types  */
 message DeleteShortcutRequest {
-    string uid = 1;
+    ShortcutReference shortcut_ref = 1;
 }
 
-/* GetDefaultFallbackShortcut types  */
 message GetDefaultFallbackShortcutResponse {
     Shortcut shortcut = 1;
 }
 
-/* GetShortcut types  */
 message GetShortcutRequest {
-    optional string uid = 1;
-    optional Alias alias = 2;
+    ShortcutReference shortcut_ref = 1;
 }
 
 message GetShortcutResponse {
     Shortcut shortcut = 1;
 }
 
-/* ListShortcuts types  */
 message ListShortcutsRequest {
     app.conveen.hare.common.pagination.PaginationRequest pagination = 1;
 }
@@ -249,13 +268,10 @@ message ListShortcutsResponse {
     app.conveen.hare.common.pagination.PaginationContinuation pagination_continuation = 2;
 }
 
-/* SetDefaultFallbackShortcut types  */
 message SetDefaultFallbackShortcutRequest {
-    optional string uid = 1;
-    optional Alias alias = 2;
+    ShortcutReference shortcut_ref = 1;
 }
 
-/* UpdateShortcut types  */
 message UpdateShortcutRequestShortcut {
     optional string url = 1;
     optional bool is_fallback = 2;
@@ -263,9 +279,8 @@ message UpdateShortcutRequestShortcut {
 }
 
 message UpdateShortcutRequest {
-    optional string uid = 1;
-    optional Alias alias = 2;
-    UpdateShortcutRequestShortcut shortcut = 3;
+    ShortcutReference shortcut_ref = 1;
+    UpdateShortcutRequestShortcut shortcut = 2;
 }
 
 message UpdateShortcutResponse {

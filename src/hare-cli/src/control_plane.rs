@@ -184,6 +184,31 @@ pub(crate) struct ShortcutUidOrAliasArgGroup {
     alias: Option<String>,
 }
 
+impl ShortcutUidOrAliasArgGroup {
+    /// Get a ref to the underlying UID or alias value.
+    fn get_ref(&self) -> &str {
+        self.uid.as_ref().unwrap_or_else(|| self.alias.as_ref().unwrap())
+    }
+}
+
+impl From<&ShortcutUidOrAliasArgGroup> for hare_control_plane_model::ShortcutReference {
+    fn from(uid_or_alias: &ShortcutUidOrAliasArgGroup) -> Self {
+        hare_control_plane_model::ShortcutReference {
+            reference: Some(
+                uid_or_alias
+                    .uid
+                    .as_ref()
+                    .map(|uid| hare_control_plane_model::shortcut_reference::Reference::Uid(uid.clone()))
+                    .unwrap_or_else(|| {
+                        hare_control_plane_model::shortcut_reference::Reference::Alias(
+                            uid_or_alias.alias.as_ref().unwrap().clone(),
+                        )
+                    }),
+            ),
+        }
+    }
+}
+
 /// Arguments for commands that paginate.
 #[derive(Clone, Debug, clap::Args)]
 pub(crate) struct PaginationArgs {
@@ -194,8 +219,8 @@ pub(crate) struct PaginationArgs {
 
 #[derive(Clone, Debug, clap::Args)]
 pub(crate) struct AddAliasesForShortcutArgs {
-    /// Shortcut UID.
-    uid: String,
+    #[command(flatten)]
+    uid_or_alias: ShortcutUidOrAliasArgGroup,
     /// Aliases to add.
     #[arg(required = true)]
     aliases: Vec<String>,
@@ -204,7 +229,7 @@ pub(crate) struct AddAliasesForShortcutArgs {
 impl From<&AddAliasesForShortcutArgs> for hare_control_plane_model::AddAliasesForShortcutRequest {
     fn from(args: &AddAliasesForShortcutArgs) -> Self {
         Self {
-            uid: args.uid.clone(),
+            shortcut_ref: Some(hare_control_plane_model::ShortcutReference::from(&args.uid_or_alias)),
             aliases: args
                 .aliases
                 .iter()
@@ -258,17 +283,38 @@ impl From<&CreateShortcutArgs> for hare_control_plane_model::CreateShortcutReque
 
 #[derive(Clone, Debug, clap::Args)]
 pub(crate) struct DeleteAliasForShortcutArgs {
-    /// Shortcut UID.
-    uid: String,
     /// Alias to delete.
     alias: String,
 }
 
 impl From<&DeleteAliasForShortcutArgs> for hare_control_plane_model::DeleteAliasForShortcutRequest {
     fn from(args: &DeleteAliasForShortcutArgs) -> Self {
-        hare_control_plane_model::DeleteAliasForShortcutRequest {
-            uid: args.uid.clone(),
-            alias: Some(hare_control_plane_model::Alias { uid: None, name: args.alias.clone() }),
+        hare_control_plane_model::DeleteAliasForShortcutRequest { alias: args.alias.clone() }
+    }
+}
+
+#[derive(Clone, Debug, clap::Args)]
+pub(crate) struct DeleteShortcutArgs {
+    #[command(flatten)]
+    uid_or_alias: ShortcutUidOrAliasArgGroup,
+}
+
+impl From<&DeleteShortcutArgs> for hare_control_plane_model::DeleteShortcutRequest {
+    fn from(args: &DeleteShortcutArgs) -> Self {
+        Self { shortcut_ref: Some(hare_control_plane_model::ShortcutReference::from(&args.uid_or_alias)) }
+    }
+}
+
+#[derive(Clone, Debug, clap::Args)]
+pub(crate) struct GetShortcutArgs {
+    #[command(flatten)]
+    uid_or_alias: ShortcutUidOrAliasArgGroup,
+}
+
+impl From<&GetShortcutArgs> for hare_control_plane_model::GetShortcutRequest {
+    fn from(args: &GetShortcutArgs) -> Self {
+        hare_control_plane_model::GetShortcutRequest {
+            shortcut_ref: Some(hare_control_plane_model::ShortcutReference::from(&args.uid_or_alias)),
         }
     }
 }
@@ -291,37 +337,6 @@ impl From<&ListShortcutsArgs> for hare_control_plane_model::ListShortcutsRequest
 }
 
 #[derive(Clone, Debug, clap::Args)]
-pub(crate) struct DeleteShortcutArgs {
-    /// Shortcut UID.
-    uid: String,
-}
-
-impl From<&DeleteShortcutArgs> for hare_control_plane_model::DeleteShortcutRequest {
-    fn from(args: &DeleteShortcutArgs) -> Self {
-        hare_control_plane_model::DeleteShortcutRequest { uid: args.uid.clone() }
-    }
-}
-
-#[derive(Clone, Debug, clap::Args)]
-pub(crate) struct GetShortcutArgs {
-    #[command(flatten)]
-    uid_or_alias: ShortcutUidOrAliasArgGroup,
-}
-
-impl From<&GetShortcutArgs> for hare_control_plane_model::GetShortcutRequest {
-    fn from(args: &GetShortcutArgs) -> Self {
-        hare_control_plane_model::GetShortcutRequest {
-            uid: args.uid_or_alias.uid.clone(),
-            alias: args
-                .uid_or_alias
-                .alias
-                .as_ref()
-                .map(|alias_name| hare_control_plane_model::Alias { uid: None, name: alias_name.clone() }),
-        }
-    }
-}
-
-#[derive(Clone, Debug, clap::Args)]
 pub(crate) struct SetDefaultFallbackShortcutArgs {
     #[command(flatten)]
     uid_or_alias: ShortcutUidOrAliasArgGroup,
@@ -330,12 +345,7 @@ pub(crate) struct SetDefaultFallbackShortcutArgs {
 impl From<&SetDefaultFallbackShortcutArgs> for hare_control_plane_model::SetDefaultFallbackShortcutRequest {
     fn from(args: &SetDefaultFallbackShortcutArgs) -> Self {
         hare_control_plane_model::SetDefaultFallbackShortcutRequest {
-            uid: args.uid_or_alias.uid.clone(),
-            alias: args
-                .uid_or_alias
-                .alias
-                .as_ref()
-                .map(|alias_name| hare_control_plane_model::Alias { uid: None, name: alias_name.clone() }),
+            shortcut_ref: Some(hare_control_plane_model::ShortcutReference::from(&args.uid_or_alias)),
         }
     }
 }
@@ -365,12 +375,7 @@ pub(crate) struct UpdateShortcutArgs {
 impl From<&UpdateShortcutArgs> for hare_control_plane_model::UpdateShortcutRequest {
     fn from(args: &UpdateShortcutArgs) -> Self {
         hare_control_plane_model::UpdateShortcutRequest {
-            uid: args.uid_or_alias.uid.clone(),
-            alias: args
-                .uid_or_alias
-                .alias
-                .as_ref()
-                .map(|alias_name| hare_control_plane_model::Alias { uid: None, name: alias_name.clone() }),
+            shortcut_ref: Some(hare_control_plane_model::ShortcutReference::from(&args.uid_or_alias)),
             shortcut: Some(hare_control_plane_model::UpdateShortcutRequestShortcut {
                 url: args.attributes.url.clone(),
                 is_fallback: args.attributes.is_fallback,
@@ -457,7 +462,7 @@ impl ControlPlaneCommands {
                 error!(%request_id, %err, "Failed to add aliases for shortcut");
                 std::process::exit(1);
             });
-        info!(shortcut_uid = args.uid, "Added aliases for shortcut");
+        info!(shortcut_ref = args.uid_or_alias.get_ref(), "Added aliases for shortcut");
     }
 
     async fn run_bootstrap(
@@ -465,10 +470,16 @@ impl ControlPlaneCommands {
         args: BootstrapArgs,
     ) {
         for shortcut in BOOTSTRAP_SHORTCUTS.iter() {
-            if let Ok(response) = client
-                .create_shortcut(hare_control_plane_model::CreateShortcutRequest::from(shortcut))
-                .await
-                .inspect_err(|err| {
+            match client.create_shortcut(hare_control_plane_model::CreateShortcutRequest::from(shortcut)).await {
+                Ok(response) => {
+                    let created_shortcut = response.get_ref().shortcut.as_ref().unwrap();
+                    info!(
+                        shortcut_uid = created_shortcut.uid,
+                        shortcut_url = created_shortcut.url,
+                        "Created new shortcut",
+                    );
+                },
+                Err(err) => {
                     let request_id = Self::get_request_id_from_err_or_exit(&err);
                     match err.code() {
                         tonic::Code::AlreadyExists => {
@@ -479,9 +490,7 @@ impl ControlPlaneCommands {
                             std::process::exit(1);
                         },
                     }
-                })
-            {
-                info!(shortcut_uid = response.get_ref().uid, shortcut_url = shortcut.url, "Created new shortcut");
+                },
             }
         }
 
@@ -518,7 +527,6 @@ impl ControlPlaneCommands {
                 error!(%request_id, %err, "Failed to create shortcut");
                 std::process::exit(1);
             });
-        info!(shortcut_uid = response.get_ref().uid, shortcut_url = args.url, "Created new shortcut");
         println!("{}", serde_json::to_string_pretty(response.get_ref()).unwrap());
     }
 
@@ -534,7 +542,7 @@ impl ControlPlaneCommands {
                 error!(%request_id, %err, "Failed to delete alias for shortcut");
                 std::process::exit(1);
             });
-        info!(shortcut_uid = args.uid, "Deleted alias for shortcut");
+        info!(alias = args.alias, "Deleted alias for shortcut");
     }
 
     async fn run_list_shortcuts(
@@ -594,7 +602,18 @@ impl ControlPlaneCommands {
                 std::process::exit(1);
             },
         );
-        info!(shortcut_uid = args.uid, "Deleted shortcut");
+        info!(shortcut_ref = args.uid_or_alias.get_ref(), "Deleted shortcut");
+    }
+
+    async fn run_get_default_fallback_shortcut(
+        client: &mut hare_control_plane_model::client::HareControlPlaneClient<tonic::transport::Channel>,
+    ) {
+        let response = client.get_default_fallback_shortcut(()).await.unwrap_or_else(|err| {
+            let request_id = Self::get_request_id_from_err_or_exit(&err);
+            error!(%request_id, %err, "Failed to get default fallback shortcut");
+            std::process::exit(1);
+        });
+        println!("{}", serde_json::to_string_pretty(response.get_ref()).unwrap());
     }
 
     async fn run_get_shortcut(
@@ -624,11 +643,7 @@ impl ControlPlaneCommands {
                 error!(%request_id, %err, "Failed to set default fallback shortcut");
                 std::process::exit(1);
             });
-        info!(
-            shortcut_uid_or_alias =
-                args.uid_or_alias.uid.as_ref().or_else(|| args.uid_or_alias.alias.as_ref()).unwrap(),
-            "Set default fallback shortcut"
-        );
+        info!(shortcut_ref = args.uid_or_alias.get_ref(), "Set default fallback shortcut");
     }
 
     async fn run_update_shortcut(
@@ -643,11 +658,7 @@ impl ControlPlaneCommands {
                 error!(%request_id, %err, "Failed to update shortcut");
                 std::process::exit(1);
             });
-        info!(
-            shortcut_uid_or_alias =
-                args.uid_or_alias.uid.as_ref().or_else(|| args.uid_or_alias.alias.as_ref()).unwrap(),
-            "Updated shortcut"
-        );
+        info!(shortcut_ref = args.uid_or_alias.get_ref(), "Updated shortcut");
         println!("{}", serde_json::to_string_pretty(response.get_ref()).unwrap());
     }
 
@@ -663,7 +674,9 @@ impl ControlPlaneCommands {
                 Self::run_delete_alias_for_shortcut(&mut client, args).await
             },
             ControlPlaneCommands::DeleteShortcut(args) => Self::run_delete_shortcut(&mut client, args).await,
-            ControlPlaneCommands::GetDefaultFallbackShortcut => todo!(),
+            ControlPlaneCommands::GetDefaultFallbackShortcut => {
+                Self::run_get_default_fallback_shortcut(&mut client).await
+            },
             ControlPlaneCommands::GetShortcut(args) => Self::run_get_shortcut(&mut client, args).await,
             ControlPlaneCommands::ListShortcuts(args) => Self::run_list_shortcuts(&mut client, args).await,
             ControlPlaneCommands::SetDefaultFallbackShortcut(args) => {

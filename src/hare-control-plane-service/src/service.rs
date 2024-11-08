@@ -1,4 +1,5 @@
 use hare_control_plane_model::server::HareControlPlane;
+use hare_control_plane_model::ShortcutReferenceAccessExt;
 use hare_data_plane_client::error::DataPlaneError;
 use hare_data_plane_client::HareDataPlaneClient;
 
@@ -6,9 +7,9 @@ use crate::convert::FromDataPlane;
 
 struct ControlPlaneAliasList<'a>(&'a Vec<hare_control_plane_model::Alias>);
 
-impl<'a> From<ControlPlaneAliasList<'a>> for Vec<&'a str> {
-    fn from(alias_list: ControlPlaneAliasList<'a>) -> Self {
-        alias_list.0.iter().map(|alias| alias.name.as_str()).collect()
+impl<'a> ControlPlaneAliasList<'a> {
+    fn get_unique_alias_names(self) -> Vec<&'a str> {
+        self.0.iter().map(|alias| alias.name.as_str()).collect::<std::collections::HashSet<_>>().into_iter().collect()
     }
 }
 
@@ -28,34 +29,70 @@ impl<D: HareDataPlaneClient + Send + Sync + 'static> HareControlPlaneService<D> 
     pub fn get_request_id<T>(request: &tonic::Request<T>) -> &str {
         request.extensions().get::<tower_http::request_id::RequestId>().unwrap().header_value().to_str().unwrap()
     }
+
+    /// Get the shortcut reference value from a [`hare_control_plane_model::ShortcutReference`].
+    fn get_shortcut_ref_value<'a>(
+        shortcut_ref: Option<&'a hare_control_plane_model::ShortcutReference>,
+    ) -> hare_data_plane_client::error::DataPlaneResult<&'a hare_control_plane_model::shortcut_reference::Reference>
+    {
+        match shortcut_ref {
+            None => Err(hare_data_plane_client::error::DataPlaneError::InvalidArgument {
+                message: "Must provide a shortcut reference".to_string(),
+            }),
+            Some(shortcut_ref) => {
+                shortcut_ref.ok_or_else(|| hare_data_plane_client::error::DataPlaneError::InvalidArgument {
+                    message: "Must provide either a shortcut UID or alias".to_string(),
+                })
+            },
+        }
+    }
+
+    /// Resolve the shortcut UID from a [`hare_control_plane_model::ShortcutReference`].
+    ///
+    /// If the ref is an alias the corresponding shortcut is retrieved.
+    async fn get_shortcut_uid_from_shortcut_ref<'a>(
+        &self,
+        shortcut_ref: Option<&'a hare_control_plane_model::ShortcutReference>,
+    ) -> hare_data_plane_client::error::DataPlaneResult<std::borrow::Cow<'a, String>> {
+        match Self::get_shortcut_ref_value(shortcut_ref)? {
+            hare_control_plane_model::shortcut_reference::Reference::Uid(uid) => Ok(std::borrow::Cow::Borrowed(uid)),
+            hare_control_plane_model::shortcut_reference::Reference::Alias(alias) => {
+                Ok(std::borrow::Cow::Owned(self.data_plane_client.get_shortcut_by_alias(&alias).await?.destination.uid))
+            },
+        }
+    }
 }
 
 #[tonic::async_trait]
 impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareControlPlane for HareControlPlaneService<D> {
-    #[tracing::instrument]
+    #[tracing::instrument(fields(request_id = Self::get_request_id(&request)))]
     async fn add_aliases_for_shortcut(
         &self,
         request: tonic::Request<hare_control_plane_model::AddAliasesForShortcutRequest>,
-    ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
-        let request_id = Self::get_request_id(&request);
-        let aliases: Vec<&str> = ControlPlaneAliasList(&request.get_ref().aliases).into();
-        self.data_plane_client.add_aliases_for_shortcut(&request.get_ref().uid, &aliases).await.map_err(|err| {
-            tracing::error!(
-                %request_id,
-                %err,
-                shortcut_uid = request.get_ref().uid,
-                aliases = aliases.join(","),
-                "Failed to add aliases for shortcut",
-            );
-            err
-        })?;
-        tracing::info!(
-            %request_id,
-            shortcut_uid = request.get_ref().uid,
-            "Added aliases for shortcut",
-        );
+    ) -> std::result::Result<tonic::Response<hare_control_plane_model::AddAliasesForShortcutResponse>, tonic::Status>
+    {
+        if request.get_ref().aliases.is_empty() {
+            return Err(tonic::Status::invalid_argument("Must provide at least one alias to add"));
+        }
 
-        Ok(tonic::Response::new(()))
+        let uid = self.get_shortcut_uid_from_shortcut_ref(request.get_ref().shortcut_ref.as_ref()).await?;
+        let aliases = ControlPlaneAliasList(&request.get_ref().aliases).get_unique_alias_names();
+        let added_aliases =
+            self.data_plane_client.add_aliases_for_shortcut(&uid, &aliases).await.inspect_err(|err| {
+                tracing::error!(
+                    %err,
+                    shortcut_uid = uid.as_str(),
+                    aliases = aliases.join(","),
+                    "Failed to add aliases for shortcut",
+                );
+            })?;
+        tracing::info!(shortcut_uid = uid.as_str(), "Added aliases for shortcut",);
+
+        Ok(tonic::Response::new(hare_control_plane_model::AddAliasesForShortcutResponse {
+            aliases: added_aliases
+                .map(|aliases| aliases.into_iter().map(hare_control_plane_model::Alias::convert).collect())
+                .unwrap_or_else(|| Vec::new()),
+        }))
     }
 
     #[tracing::instrument]
@@ -68,35 +105,38 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
             .shortcut
             .as_ref()
             .ok_or_else(|| tonic::Status::invalid_argument("Must provide shortcut to be created"))?;
+        if request_shortcut.aliases.is_empty() {
+            return Err(tonic::Status::invalid_argument("Shortcuts must have at least one alias"));
+        }
 
         let request_id = Self::get_request_id(&request);
-        let aliases: Vec<&str> = ControlPlaneAliasList(&request_shortcut.aliases).into();
-        let uid = self
+        let aliases: Vec<&str> = ControlPlaneAliasList(&request_shortcut.aliases).get_unique_alias_names();
+        let committed_shortcut = self
             .data_plane_client
             .create_shortcut(
                 &request_shortcut.url,
                 request_shortcut.is_fallback.unwrap_or(false),
-                false,
                 &request_shortcut.description,
                 &aliases,
             )
             .await
-            .map_err(|err| {
+            .inspect_err(|err| {
                 tracing::error!(
                     %request_id,
                     %err,
                     url = &request_shortcut.url,
                     "Failed to create shortcut",
                 );
-                err
             })?;
         tracing::info!(
             %request_id,
-            shorcut_uid = &uid,
+            shorcut_uid = committed_shortcut.destination.uid,
             "Created new shortcut",
         );
 
-        Ok(tonic::Response::new(hare_control_plane_model::CreateShortcutResponse { uid }))
+        Ok(tonic::Response::new(hare_control_plane_model::CreateShortcutResponse {
+            shortcut: Some(hare_control_plane_model::Shortcut::convert(committed_shortcut)),
+        }))
     }
 
     #[tracing::instrument]
@@ -104,29 +144,27 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
         &self,
         request: tonic::Request<hare_control_plane_model::DeleteAliasForShortcutRequest>,
     ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
-        let alias = request
-            .get_ref()
-            .alias
-            .as_ref()
-            .ok_or_else(|| tonic::Status::invalid_argument("Must provide the alias to delete"))?;
+        let alias = &request.get_ref().alias;
+        let shortcut = self.data_plane_client.get_shortcut_by_alias(alias).await?;
+
         let request_id = Self::get_request_id(&request);
         self.data_plane_client
-            .delete_aliases_for_shortcut(&request.get_ref().uid, &[alias.name.as_str()])
+            // The data plane client enforces at least one alias for each shortcut
+            .delete_aliases_for_shortcut(&shortcut.destination.uid, &[alias])
             .await
-            .map_err(|err| {
+            .inspect_err(|err| {
                 tracing::error!(
                     %request_id,
                     %err,
-                    shortcut_uid = request.get_ref().uid,
-                    alias = alias.name.as_str(),
+                    shortcut_uid = shortcut.destination.uid,
+                    alias = alias,
                     "Failed to delete alias for shortcut",
                 );
-                err
             })?;
         tracing::info!(
             %request_id,
-            shortcut_uid = request.get_ref().uid,
-            alias = alias.name.as_str(),
+            shortcut_uid = shortcut.destination.uid,
+            alias = alias,
             "Deleted alias for shortcut",
         );
 
@@ -138,19 +176,19 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
         &self,
         request: tonic::Request<hare_control_plane_model::DeleteShortcutRequest>,
     ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
+        let uid = self.get_shortcut_uid_from_shortcut_ref(request.get_ref().shortcut_ref.as_ref()).await?;
         let request_id = Self::get_request_id(&request);
-        self.data_plane_client.delete_shortcut(&request.get_ref().uid).await.map_err(|err| {
+        self.data_plane_client.delete_shortcut(&uid).await.inspect_err(|err| {
             tracing::error!(
                 %request_id,
                 %err,
-                shortcut_uid = request.get_ref().uid,
+                shortcut_uid = uid.as_str(),
                 "Failed to delete shortcut",
             );
-            err
         })?;
         tracing::info!(
             %request_id,
-            shortcut_uid = request.get_ref().uid,
+            shortcut_uid = uid.as_str(),
             "Deleted shortcut",
         );
 
@@ -186,23 +224,23 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
         request: tonic::Request<hare_control_plane_model::GetShortcutRequest>,
     ) -> std::result::Result<tonic::Response<hare_control_plane_model::GetShortcutResponse>, tonic::Status> {
         let request_id = Self::get_request_id(&request);
-        let shortcut = self
-            .data_plane_client
-            .get_shortcut(
-                request.get_ref().uid.as_deref(),
-                request.get_ref().alias.as_ref().map(|alias| alias.name.as_str()),
-                false,
-            )
-            .await
-            .map_err(|err| {
-                tracing::error!(
-                    %request_id,
-                    %err,
-                    shortcut_uid = request.get_ref().uid,
-                    "Failed to get shortcut",
-                );
-                err
-            })?;
+        let shortcut = match Self::get_shortcut_ref_value(request.get_ref().shortcut_ref.as_ref())? {
+            hare_control_plane_model::shortcut_reference::Reference::Uid(uid) => {
+                self.data_plane_client.get_shortcut_by_uid(&uid).await
+            },
+            hare_control_plane_model::shortcut_reference::Reference::Alias(alias) => {
+                self.data_plane_client.get_shortcut_by_alias(&alias).await
+            },
+        }
+        .inspect_err(|err| match err {
+            DataPlaneError::NotFound { resource_id: _ } => {},
+            _ => tracing::error!(
+                %request_id,
+                %err,
+                // TODO: add shortcut ref value here
+                "Failed to get shortcut",
+            ),
+        })?;
 
         Ok(tonic::Response::new(hare_control_plane_model::GetShortcutResponse {
             shortcut: Some(hare_control_plane_model::Shortcut::convert(shortcut)),
@@ -243,42 +281,27 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
         request: tonic::Request<hare_control_plane_model::SetDefaultFallbackShortcutRequest>,
     ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
         let request_id = Self::get_request_id(&request);
-        let shortcut = self
-            .data_plane_client
-            .get_shortcut(
-                request.get_ref().uid.as_deref(),
-                request.get_ref().alias.as_ref().map(|alias| alias.name.as_str()),
-                false,
-            )
-            .await
-            .inspect_err(|err| match &err {
-                DataPlaneError::NotFound { resource_id: _ } => tracing::info!(
-                    %request_id,
-                    shorcut_uid = request.get_ref().uid,
-                    "Attempt to set non-existent shortcut as default fallback",
-                ),
-                err => tracing::error!(
+        let uid = self.get_shortcut_uid_from_shortcut_ref(request.get_ref().shortcut_ref.as_ref()).await.inspect_err(
+            |err| match err {
+                hare_data_plane_client::error::DataPlaneError::InvalidArgument { message: _ } => {},
+                hare_data_plane_client::error::DataPlaneError::NotFound { resource_id: _ } => {},
+                _ => tracing::error!(
                     %request_id,
                     %err,
-                    shorcut_uid = request.get_ref().uid,
-                    "Failed to get existing shortcut for uid",
+                    "Failed to get existing shortcut",
                 ),
-            })?;
-        self.data_plane_client
-            .update_shortcut(Some(&shortcut.destination.uid), None, None, Some(true), Some(true), None)
-            .await
-            .map_err(|err| {
-                tracing::error!(
-                    %request_id,
-                    %err,
-                    shortcut_uid = request.get_ref().uid,
-                    "Failed to set shortcut as default fallback",
-                );
-                err
-            })?;
+            },
+        )?;
+        self.data_plane_client.set_default_fallback_shortcut(&uid).await.inspect_err(|err| {
+            tracing::error!(
+                %request_id,
+                %err,
+                "Failed to set new default fallback shortcut",
+            );
+        })?;
         tracing::info!(
             %request_id,
-            shortcut_uid = request.get_ref().uid,
+            shortcut_uid = uid.as_str(),
             "Set new default fallback shortcut",
         );
 
@@ -292,32 +315,30 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
     ) -> std::result::Result<tonic::Response<hare_control_plane_model::UpdateShortcutResponse>, tonic::Status> {
         let request_id = Self::get_request_id(&request);
         let shortcut = if let Some(request_shortcut) = request.get_ref().shortcut.as_ref() {
+            let uid = self.get_shortcut_uid_from_shortcut_ref(request.get_ref().shortcut_ref.as_ref()).await?;
             let shortcut = self
                 .data_plane_client
                 .update_shortcut(
-                    request.get_ref().uid.as_deref(),
-                    request.get_ref().alias.as_ref().map(|alias| alias.name.as_str()),
+                    &uid,
                     request_shortcut.url.as_deref(),
                     request_shortcut.is_fallback,
-                    None,
                     request_shortcut.description.as_deref(),
                 )
                 .await
-                .map_err(|err| {
+                .inspect_err(|err| {
                     tracing::error!(
                         %request_id,
                         %err,
-                        shortcut_uid = request.get_ref().uid,
+                        shortcut_uid = uid.as_str(),
                         "Failed to update shortcut",
                     );
-                    err
                 })?;
             tracing::info!(
                 %request_id,
-                shortcut_uid = request.get_ref().uid,
+                shortcut_uid = uid.as_str(),
                 "Updated shortcut",
             );
-            shortcut
+            Some(shortcut)
         } else {
             None
         };
