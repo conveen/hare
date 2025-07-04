@@ -43,7 +43,7 @@ info "Installing Docker"
 apt update && \
     apt-get install -y docker-ce docker-ce-cli containerd.io
 
-info "Creating group docker-host with GID ${DOCKER_GID}"
-addgroup --gid "${DOCKER_GID}" docker-host
-info "Adding user ${USERNAME} to docker-host group"
-adduser "${USERNAME}" docker-host
+# info "Creating group docker-host with GID ${DOCKER_GID}"
+# addgroup --gid "${DOCKER_GID}" docker-host
+# info "Adding user ${USERNAME} to docker-host group"
+# adduser "${USERNAME}" docker-host

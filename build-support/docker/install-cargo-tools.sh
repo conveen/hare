@@ -18,7 +18,7 @@ info "Installing cargo-deny for dependency linting"
 sudo -Hiu $USERNAME bash -c '$HOME/.cargo/bin/cargo install --locked cargo-deny'
 
 info "Installing grcov for rendering coverage reports"
-sudo -Hiu $USERNAME bash -c '$HOME/.cargo/bin/cargo install --locked grcov'
+sudo -Hiu $USERNAME bash -c '$HOME/.cargo/bin/cargo install grcov'
 
 info "Installing sqlx CLI for managing the database"
 sudo -Hiu $USERNAME bash -c '$HOME/.cargo/bin/cargo install --locked sqlx-cli'

@@ -1,5 +1,5 @@
 -- Create table destination
--- RDBMS: SQLite
+-- RDBMS: Postgres, SQLite
 
 CREATE TABLE IF NOT EXISTS "destination" (
     "uid" VARCHAR(40) NOT NULL PRIMARY KEY,

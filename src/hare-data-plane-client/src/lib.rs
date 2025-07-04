@@ -1,12 +1,17 @@
 pub mod error;
 pub mod model;
 mod pagination;
+mod relational;
 mod utils;
 
-// #[cfg(feature = "dynamodb")]
-// pub mod dynamodb;
+#[cfg(feature = "postgres")]
+pub mod postgres {
+    pub use crate::relational::HareDataPlanePostgres;
+}
 #[cfg(feature = "sqlite")]
-pub mod sqlite;
+pub mod sqlite {
+    pub use crate::relational::HareDataPlaneSqlite;
+}
 
 use hare_common_model::pagination::{PaginationContinuation, PaginationRequest};
 
@@ -26,7 +31,9 @@ pub trait HareDataPlaneClient {
     ///
     /// Boostrap here means performing updates so it's ready to handle requests.
     /// This could mean performing migrations, adding secondary indexes, etc.
-    async fn bootstrap(&self) -> error::DataPlaneResult<()>;
+    async fn bootstrap(&self) -> error::DataPlaneResult<()> {
+        todo!();
+    }
 
     /// Add one or more aliases to a shortcut.
     ///
@@ -45,11 +52,14 @@ pub trait HareDataPlaneClient {
     /// * [`error::DataPlaneError::InvalidArgument`]: if one or more arguments do not meet the requirements.
     /// * [`error::DataPlaneError::AlreadyExists`]: if one or more aliases already exist.
     /// * [`error::DataPlaneError::NotFound`]: if the shortcut does not exist.
+    #[allow(unused_variables)]
     async fn add_aliases_for_shortcut(
         &self,
         uid: &str,
         aliases: &[&str],
-    ) -> error::DataPlaneResult<Option<Vec<model::CommittedAlias>>>;
+    ) -> error::DataPlaneResult<Option<Vec<model::CommittedAlias>>> {
+        todo!();
+    }
 
     /// Create a new shortcut.
     ///
@@ -68,17 +78,18 @@ pub trait HareDataPlaneClient {
     ///
     /// * [`error::DataPlaneError::InvalidArgument`]: if one or more arguments do not meet the requirements.
     /// * [`error::DataPlaneError::AlreadyExists`]: if a shortcut with the same URL Or one or more aliases already exist.
+    #[allow(unused_variables)]
     async fn create_shortcut(
         &self,
         url: &str,
         is_fallback: bool,
         description: &str,
         aliases: &[&str],
-    ) -> error::DataPlaneResult<model::CommittedShortcut>;
+    ) -> error::DataPlaneResult<model::CommittedShortcut> {
+        todo!();
+    }
 
     /// Delete one or more aliases for a shortcut.
-    ///
-    /// Non-existent aliases are ignored.
     ///
     /// # Preconditions
     ///
@@ -96,12 +107,15 @@ pub trait HareDataPlaneClient {
     ///
     /// * [`error::DataPlaneError::InvalidArgument`]: if one or more arguments do not meet the requirements.
     /// * [`error::DataPlaneError::FailedPrecondition`]: if the shortcut only has one existing alias.
-    /// * [`error::DataPlaneError::NotFound`]: if the shortcut does not exist.
+    /// * [`error::DataPlaneError::NotFound`]: if the shortcut or one of the aliases do not exist.
+    #[allow(unused_variables)]
     async fn delete_aliases_for_shortcut(
         &self,
         uid: &str,
         aliases: &[&str],
-    ) -> error::DataPlaneResult<Option<Vec<model::CommittedAlias>>>;
+    ) -> error::DataPlaneResult<Option<Vec<model::CommittedAlias>>> {
+        todo!();
+    }
 
     /// Delete a shortcut.
     ///
@@ -113,7 +127,10 @@ pub trait HareDataPlaneClient {
     ///
     /// * [`error::DataPlaneError::InvalidArgument`]: if one or more arguments do not meet the requirements.
     /// * [`error::DataPlaneError::NotFound`]: if the shortcut does not exist.
-    async fn delete_shortcut(&self, uid: &str) -> error::DataPlaneResult<()>;
+    #[allow(unused_variables)]
+    async fn delete_shortcut(&self, uid: &str) -> error::DataPlaneResult<()> {
+        todo!();
+    }
 
     /// Get the default fallback shortcut.
     ///
@@ -124,7 +141,10 @@ pub trait HareDataPlaneClient {
     /// # Errors
     ///
     /// * [`error::DataPlaneError::NotFound`]: if the shortcut does not exist.
-    async fn get_default_fallback_shortcut(&self) -> error::DataPlaneResult<model::CommittedShortcut>;
+    #[allow(unused_variables)]
+    async fn get_default_fallback_shortcut(&self) -> error::DataPlaneResult<model::CommittedShortcut> {
+        todo!();
+    }
 
     /// Set the default fallback shortcut.
     ///
@@ -137,7 +157,10 @@ pub trait HareDataPlaneClient {
     /// # Errors
     ///
     /// * [`error::DataPlaneError::NotFound`]: if the shortcut does not exist.
-    async fn set_default_fallback_shortcut(&self, uid: &str) -> error::DataPlaneResult<()>;
+    #[allow(unused_variables)]
+    async fn set_default_fallback_shortcut(&self, uid: &str) -> error::DataPlaneResult<()> {
+        todo!();
+    }
 
     /// Get shortcut by UID.
     ///
@@ -153,7 +176,10 @@ pub trait HareDataPlaneClient {
     ///
     /// * [`error::DataPlaneError::InvalidArgument`]: if one or more arguments do not meet the requirements.
     /// * [`error::DataPlaneError::NotFound`]: if the shortcut does not exist.
-    async fn get_shortcut_by_uid(&self, uid: &str) -> error::DataPlaneResult<model::CommittedShortcut>;
+    #[allow(unused_variables)]
+    async fn get_shortcut_by_uid(&self, uid: &str) -> error::DataPlaneResult<model::CommittedShortcut> {
+        todo!();
+    }
 
     /// Get shortcut by alias.
     ///
@@ -169,7 +195,10 @@ pub trait HareDataPlaneClient {
     ///
     /// * [`error::DataPlaneError::InvalidArgument`]: if one or more arguments do not meet the requirements.
     /// * [`error::DataPlaneError::NotFound`]: if the shortcut does not exist.
-    async fn get_shortcut_by_alias(&self, alias: &str) -> error::DataPlaneResult<model::CommittedShortcut>;
+    #[allow(unused_variables)]
+    async fn get_shortcut_by_alias(&self, alias: &str) -> error::DataPlaneResult<model::CommittedShortcut> {
+        todo!();
+    }
 
     /// Get a shortcut by UID or alias, or the default fallback shortcut.
     ///
@@ -226,7 +255,10 @@ pub trait HareDataPlaneClient {
     /// # Errors
     ///
     /// * [`error::DataPlaneError::InvalidArgument`]: if one or more arguments do not meet the requirements.
-    async fn list_shortcuts(&self, pagination: &PaginationRequest) -> error::DataPlaneResult<ListShortcutsResponse>;
+    #[allow(unused_variables)]
+    async fn list_shortcuts(&self, pagination: &PaginationRequest) -> error::DataPlaneResult<ListShortcutsResponse> {
+        todo!();
+    }
 
     /// Update a shortcut.
     ///
@@ -238,11 +270,14 @@ pub trait HareDataPlaneClient {
     ///
     /// * [`error::DataPlaneError::InvalidArgument`]: if one or more arguments do not meet the requirements.
     /// * [`error::DataPlaneError::NotFound`]: if the shortcut does not exist.
+    #[allow(unused_variables)]
     async fn update_shortcut(
         &self,
         uid: &str,
         url: Option<&str>,
         is_fallback: Option<bool>,
         description: Option<&str>,
-    ) -> error::DataPlaneResult<model::CommittedShortcut>;
+    ) -> error::DataPlaneResult<model::CommittedShortcut> {
+        todo!();
+    }
 }

@@ -28,7 +28,7 @@ pub struct CommittedDestination {
     /// Must be an HTTP URL compliant with [RFC-1738](https://www.rfc-editor.org/rfc/rfc1738#section-3.3).
     pub url: String,
     /// The number of parameters in the URL.
-    pub num_params: i64,
+    pub num_params: i32,
     /// Whether the destination is a fallback.
     pub is_fallback: bool,
     /// Whether the destination is the default fallback.
@@ -73,15 +73,15 @@ pub struct CommittedAlias {
     pub name: String,
 }
 
-impl PartialOrd for CommittedAlias {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.name.partial_cmp(&other.name)
-    }
-}
-
 impl Ord for CommittedAlias {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.name.cmp(&other.name)
+    }
+}
+
+impl PartialOrd for CommittedAlias {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 

@@ -1,5 +1,5 @@
 -- Create table alias
--- RDBMS: SQLite
+-- RDBMS: Postgres, SQLite
 
 CREATE TABLE IF NOT EXISTS "alias" (
     "name" VARCHAR(100) NOT NULL PRIMARY KEY,

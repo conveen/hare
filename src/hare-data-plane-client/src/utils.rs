@@ -36,7 +36,7 @@ pub fn validate_url(raw_url: &str) -> error::DataPlaneResult<String> {
 /// # Returns
 ///
 /// `1` if `{}` is found anywhere in the string, otherwise `0`.
-pub fn gen_num_params_from_url(url: &str) -> i64 {
+pub fn gen_num_params_from_url(url: &str) -> i32 {
     if url.contains("{}") {
         1
     } else {

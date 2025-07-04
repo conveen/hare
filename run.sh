@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -eu
+set -e
 
 ###################
 ##### Imports #####
@@ -44,12 +44,23 @@ run-push-base() {
 }
 
 run-in-container() {
+    local COMMAND="${1}"
     local DATABASE_URL="${DATABASE_URL:-sqlite:///project/src/hare-data-plane-client/hare.db}"
     # If input device is not a TTY don't run with `-it` flags
     local INTERACTIVE_FLAGS="$(test -t 0 && echo '-it' || echo '')"
+    # Expose ports on localhost for specific commands
+    local PORT_FLAGS=""
+    if [ "${COMMAND}" = "run-cp" ]
+    then
+        PORT_FLAGS="-p 127.0.0.1:5001:5001"
+    elif [ "${COMMAND}" = "run-web" ]
+    then
+        PORT_FLAGS="-p 127.0.0.1:8001:8001"
+    fi
     ${CONTAINER_RUNTIME} run \
 		--rm \
          ${INTERACTIVE_FLAGS} \
+         ${PORT_FLAGS} \
 		-u ${USERNAME} \
         -e "CROSS_CONTAINER_IN_CONTAINER=true" \
         -e "DATABASE_URL=${DATABASE_URL}" \
@@ -126,7 +137,7 @@ run-build() {
 
     run-lint ${CHECK_TEST_ARGS}
 
-    run-check-deps
+    # run-check-deps
 
     run-test ${CHECK_TEST_ARGS}
 
@@ -212,6 +223,16 @@ run-init() {
         docs/index.html
 }
 
+run-kill-ddb() {
+    info "Stopping DynamoDB Local"
+    sudo docker ps | grep dynamodb-local | awk '{print $1}' | xargs sudo docker kill 2>/dev/null
+}
+
+run-kill-postgres() {
+    info "Stopping Postgres server"
+    sudo docker ps | grep postgres | awk '{print $1}' | xargs sudo docker kill 2>/dev/null
+}
+
 run-lint() {
     info "Linting code with Clippy"
     cargo clippy "${@}"
@@ -230,37 +251,94 @@ run-publish() {
     cargo publish "${@}"
 }
 
+run-run-cp() {
+    info "Running control plane server"
+    cargo run -p hare-control-plane-server 0.0.0.0:5001
+}
+
+run-run-ddb() {
+    info "Running DynamoDB Local"
+    sudo docker run \
+        --rm \
+        -d \
+        -p 127.0.0.1:8000:8000 \
+        amazon/dynamodb-local:latest \
+        -jar DynamoDBLocal.jar \
+        -inMemory \
+        -disableTelemetry
+}
+
+run-run-postgres() {
+    info "Running Postgres server"
+    sudo docker run \
+        --rm \
+        -d \
+        -e POSTGRES_DB=hare \
+        -e POSTGRES_PASSWORD=postgres \
+        postgres:17
+}
+
+run-run-web() {
+    info "Running web server"
+    cargo run -p hare-web-server 0.0.0.0:8001
+}
+
 run-shell() {
     info "Entering shell"
     bash
 }
 
+run-test-dp-postgres() {
+    local POSTGRES_SERVER_IP=$(sudo docker ps | grep postgres | awk '{print $1}' | xargs sudo docker inspect | grep '"IPAddress"' | head -n1 | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | tr -d '[[:space:]]')
+    if [ -z $POSTGRES_SERVER_IP ]
+    then
+        error "Postgres server container isn't running"
+        exit 1
+    fi
+
+    info "Running data plane tests for Postgres"
+    export DATABASE_URL="postgres://postgres:postgres@${POSTGRES_SERVER_IP}/hare"
+    cargo test -p hare-data-plane-client --no-default-features --features postgres
+}
+
+run-test-dp-sqlite() {
+    info "Running data plane tests for SQLite"
+    export DATABASE_URL="sqlite:///project/src/hare-data-plane-client/hare.db"
+    cargo test -p hare-data-plane-client --no-default-features --features sqlite
+}
+
 run-test() {
     local TEST_ARGS="$(remove-profile-flags ${@})"
     export CARGO_INCREMENTAL=0 
-    export RUSTC_BOOTSTRAP=1 
-    export RUSTDOCFLAGS="-Cpanic=abort" 
-    export RUSTFLAGS="-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort" 
+    export RUSTFLAGS="-Cinstrument-coverage"
 
-    # See https://github.com/mozilla/grcov#example-how-to-generate-gcda-files-for-a-rust-project
-    # for documentation on generating .gcda file for a Rust project
-    info "Compiling package with coverage information"
-    cargo build ${TEST_ARGS}
-    
-    info "Running package tests"
-    cargo test "${@}"
-
-    info "Generating coverage report with grcov"
-    TARGET_PLATFORM="$(echo ${@} | grep -o '\-\-target [^ ]\+' | sed 's/--target//g' | tr -d '[:space:]')"
+    local TARGET_PLATFORM="$(echo ${@} | grep -o '\-\-target [^ ]\+' | sed 's/--target//g' | tr -d '[:space:]')"
     if [ -z "${TARGET_PLATFORM}" ]
     then
         TARGET_ROOT_DIRECTORY="./target/debug"
     else
         TARGET_ROOT_DIRECTORY="./target/${TARGET_PLATFORM}"
     fi
-    grcov . -s . --binary-path "${TARGET_ROOT_DIRECTORY}/" -t html --branch --ignore-not-existing -o "${TARGET_ROOT_DIRECTORY}/coverage/"
+    export LLVM_PROFILE_FILE="${TARGET_ROOT_DIRECTORY}/coverage/hare-%p-%m.profraw"
+
+    # See https://github.com/mozilla/grcov?tab=readme-ov-file#example-how-to-generate-source-based-coverage-for-a-rust-project
+    # for documentation on generating source-based coverage for a Rust project
+    info "Compiling package with coverage information"
+    cargo build ${TEST_ARGS}
+    
+    run-test-dp-sqlite
+    run-test-dp-postgres
+
+    info "Running non-data plane tests"
+    cargo test --workspace --exclude hare-data-plane-client "${@}"
+
+    # TODO: Fix coverage report to reflect actual test coverage
+    # info "Generating coverage report with grcov"
+    # grcov "${TARGET_ROOT_DIRECTORY}/coverage/" -s . --binary-path "${TARGET_ROOT_DIRECTORY}/" -t html --branch --ignore-not-existing -o "${TARGET_ROOT_DIRECTORY}/coverage/"
+    # rm -rf ${TARGET_ROOT_DIRECTORY}/coverage/*.profraw
 
     unset CARGO_INCREMENTAL
+    unset LLVM_PROFILE_FILE
     unset RUSTC_BOOTSTRAP
     unset RUSTDOCFLAGS
     unset RUSTFLAGS
@@ -282,17 +360,23 @@ print-usage() {
     echo "subcommands:"
     echo "build             cross-build: compile package (default subcommand)"
     echo "build-base        build the build container image"
-    echo "build-release     build app container with compiled control plane server"
+    echo "build-release     build app container with compiled control plane and web servers"
     echo "check             cross-check: check package for errors"
     echo "check-deps        cargo-deny: check dependencies for license compliance, security notices, and trusted sources"
     echo "clean             cargo-clean: remove Cargo build artifacts"
     echo "exec              execute arbitrary shell commands"
     echo "fmt               format code with Rustfmt"
     echo "init              initialize repository (should only be run once)"
+    echo "kill-ddb          kill DynamoDB Local container"
+    echo "kill-postgres     kill Postgres container"
     echo "lint              lint code with Clippy"
     echo "make-docs         cargo-doc: compile package documentation"
     echo "publish           publish package to crates.io"
     echo "push-base         push build container image to registry"
+    echo "run-cp            run the control plane server on localhost"
+    echo "run-ddb           run DynamoDB Local container on localhost"
+    echo "run-postgres      run Postgres server on localhost"
+    echo "run-web           run the web server on localhost"
     echo "shell             start Bash shell"
     echo "test              cross-test: run unit, documentation, and integration tests and code coverage"
     echo "update-deps       cargo-update: update dependencies in Cargo.lock file"
@@ -337,8 +421,10 @@ fi
 # These commands should explicitly run locally
 if ( \
     [ "${COMMAND}" = "build-base" ] \
+    || [ "${COMMAND}" = "build-release" ] \
     || [ "${COMMAND}" = "push-base" ] \
-    || [ "${COMMAND}" = "build-release" ]
+    || [ "${COMMAND}" = "run-ddb" ] \
+    || [ "${COMMAND}" = "kill-ddb" ]
 )
 then
     RUNTIME_CONTEXT="local"

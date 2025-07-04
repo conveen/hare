@@ -89,7 +89,7 @@ service HareControlPlane {
      * Raises:
      *     RESOURCE_EXHAUSTED: if caller is rate-limited.
      *     INVALID_ARGUMENT: if one or more arguments do not meet the requirements.
-     *     NOT_FOUND: if the shortcut does not exist.
+     *     NOT_FOUND: if the shortcut or an alias do not exist.
      *     INTERNAL: internal server error.
      */
     rpc DeleteShortcut(DeleteShortcutRequest) returns (google.protobuf.Empty);
@@ -167,10 +167,14 @@ service HareControlPlane {
      *     * Exactly one of shortcut UID or alias must be provided as a shortcut reference.
      *     * Shortcut UID must correspond to an existing shortcut, if provided.
      *     * Alias must correspond to an existing shortcut, if provided.
+     *     * Cannot set `is_fallback` to false for the default fallback shortcut.
+     *     * URL must be unique, if provided.
      *
      * Raises:
      *     RESOURCE_EXHAUSTED: if caller is rate-limited.
      *     NOT_FOUND: if the shortcut does not exist.
+     *     INVALID_ARGUMENT: if `is_fallback` is set to false for the default fallback shortcut.
+     *     ALREADY_EXISTS: if the URL is already used by another shortcut.
      *     INTERNAL: internal server error.
      */
     rpc UpdateShortcut(UpdateShortcutRequest) returns (UpdateShortcutResponse);

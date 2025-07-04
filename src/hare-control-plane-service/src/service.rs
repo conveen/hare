@@ -33,10 +33,9 @@ impl<D: HareDataPlaneClient + Send + Sync + 'static> HareControlPlaneService<D> 
     }
 
     /// Get the shortcut reference value from a [`hare_control_plane_model::ShortcutReference`].
-    fn get_shortcut_ref_value<'a>(
-        shortcut_ref: Option<&'a hare_control_plane_model::ShortcutReference>,
-    ) -> hare_data_plane_client::error::DataPlaneResult<&'a hare_control_plane_model::shortcut_reference::Reference>
-    {
+    fn get_shortcut_ref_value(
+        shortcut_ref: Option<&hare_control_plane_model::ShortcutReference>,
+    ) -> hare_data_plane_client::error::DataPlaneResult<&hare_control_plane_model::shortcut_reference::Reference> {
         match shortcut_ref {
             None => Err(hare_data_plane_client::error::DataPlaneError::InvalidArgument {
                 message: "Must provide a shortcut reference".to_string(),
@@ -59,7 +58,7 @@ impl<D: HareDataPlaneClient + Send + Sync + 'static> HareControlPlaneService<D> 
         match Self::get_shortcut_ref_value(shortcut_ref)? {
             hare_control_plane_model::shortcut_reference::Reference::Uid(uid) => Ok(std::borrow::Cow::Borrowed(uid)),
             hare_control_plane_model::shortcut_reference::Reference::Alias(alias) => {
-                Ok(std::borrow::Cow::Owned(self.data_plane_client.get_shortcut_by_alias(&alias).await?.destination.uid))
+                Ok(std::borrow::Cow::Owned(self.data_plane_client.get_shortcut_by_alias(alias).await?.destination.uid))
             },
         }
     }
@@ -96,7 +95,7 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
         Ok(tonic::Response::new(hare_control_plane_model::AddAliasesForShortcutResponse {
             aliases: added_aliases
                 .map(|aliases| aliases.into_iter().map(hare_control_plane_model::Alias::convert).collect())
-                .unwrap_or_else(|| Vec::new()),
+                .unwrap_or_default(),
         }))
     }
 
@@ -201,14 +200,15 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
         request: tonic::Request<()>,
     ) -> std::result::Result<tonic::Response<hare_control_plane_model::GetDefaultFallbackShortcutResponse>, tonic::Status>
     {
-        let shortcut = self.data_plane_client.get_default_fallback_shortcut().await.inspect_err(|err| match &err {
+        let shortcut = self.data_plane_client.get_default_fallback_shortcut().await.map_err(|err| match err {
             DataPlaneError::NotFound { resource_id: _ } => {
-                tracing::error!(request_id = %Self::get_request_id(&request), "No default fallback shortcut defined")
+                tracing::error!(request_id = %Self::get_request_id(&request), "No default fallback shortcut defined");
+                tonic::Status::failed_precondition("No default fallback shortcut defined")
             },
-            err => tracing::error!(
-                %err,
-                "Failed to get default fallback shortcut",
-            ),
+            _ => {
+                tracing::error!(%err, "Failed to get default fallback shortcut");
+                tonic::Status::from(err)
+            },
         })?;
 
         Ok(tonic::Response::new(hare_control_plane_model::GetDefaultFallbackShortcutResponse {
@@ -227,10 +227,10 @@ impl<D: HareDataPlaneClient + std::fmt::Debug + Send + Sync + 'static> HareContr
     ) -> std::result::Result<tonic::Response<hare_control_plane_model::GetShortcutResponse>, tonic::Status> {
         let shortcut = match Self::get_shortcut_ref_value(request.get_ref().shortcut_ref.as_ref())? {
             hare_control_plane_model::shortcut_reference::Reference::Uid(uid) => {
-                self.data_plane_client.get_shortcut_by_uid(&uid).await
+                self.data_plane_client.get_shortcut_by_uid(uid).await
             },
             hare_control_plane_model::shortcut_reference::Reference::Alias(alias) => {
-                self.data_plane_client.get_shortcut_by_alias(&alias).await
+                self.data_plane_client.get_shortcut_by_alias(alias).await
             },
         }
         .inspect_err(|err| match err {

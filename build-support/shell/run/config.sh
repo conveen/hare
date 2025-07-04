@@ -33,4 +33,4 @@ RELEASE_IMAGE_TAG="release"
 USERID="$(id -u)"
 USERNAME="$(id -un)"
 # Docker group GID of host
-DOCKER_GID="$(getent group docker | cut -d: -f3)"
+DOCKER_GID="$(! test -z $(which getent) && ( getent group docker | cut -d: -f3 ) || id -g)"

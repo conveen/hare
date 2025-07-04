@@ -16,7 +16,7 @@ impl FromDataPlane<CommittedShortcut> for hare_control_plane_model::Shortcut {
         hare_control_plane_model::Shortcut {
             uid: committed_shortcut.destination.uid,
             url: committed_shortcut.destination.url,
-            num_params: committed_shortcut.destination.num_params as i32,
+            num_params: committed_shortcut.destination.num_params,
             is_fallback: committed_shortcut.destination.is_fallback,
             is_default_fallback: committed_shortcut.destination.is_default_fallback,
             description: committed_shortcut.destination.description,
@@ -33,7 +33,7 @@ impl FromDataPlane<CommittedShortcutList> for Vec<hare_control_plane_model::Shor
             .map(|committed_shortcut| hare_control_plane_model::Shortcut {
                 uid: committed_shortcut.destination.uid,
                 url: committed_shortcut.destination.url,
-                num_params: committed_shortcut.destination.num_params as i32,
+                num_params: committed_shortcut.destination.num_params,
                 is_fallback: committed_shortcut.destination.is_fallback,
                 is_default_fallback: committed_shortcut.destination.is_default_fallback,
                 description: committed_shortcut.destination.description,
