@@ -37,7 +37,7 @@ pub enum DataPlaneError {
     #[error(transparent)]
     SerdeJson(#[from] serde_json::Error),
 
-    /// A SQLite query error.
+    /// A SQLx error.
     #[cfg(any(feature = "sqlite", feature = "postgres"))]
     #[error(transparent)]
     Sqlx(#[from] sqlx::Error),

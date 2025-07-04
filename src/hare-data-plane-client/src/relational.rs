@@ -137,7 +137,14 @@ where
                     "Failed to connect to database",
                 );
             })?;
+        tracing::debug!("Connected to database at URL: {}", database_url.as_ref());
         Ok(Self::from_connection(connection))
+    }
+
+    pub async fn try_from_env() -> error::DataPlaneResult<Self> {
+        let database_url = std::env::var("DATABASE_URL")
+            .map_err(error::DataPlaneError::from)?;
+        Self::try_from_url(database_url).await
     }
 
     /// Add one alias to a shortcut.

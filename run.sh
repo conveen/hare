@@ -253,7 +253,7 @@ run-publish() {
 
 run-run-cp() {
     info "Running control plane server"
-    cargo run -p hare-control-plane-server 0.0.0.0:5001
+    cargo run -p hare-control-plane-server "${@}" 0.0.0.0:5001
 }
 
 run-run-ddb() {

@@ -3,11 +3,16 @@ name = "hare-control-plane-server"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["sqlite"]
+postgres = ["hare-data-plane-client/postgres"]
+sqlite = ["hare-data-plane-client/sqlite"]
+
 [dependencies]
 hare-common-utils = { path = "../hare-common-utils" }
 hare-control-plane-model = { path = "../hare-control-plane-model" }
 hare-control-plane-service = { path = "../hare-control-plane-service" }
-hare-data-plane-client = { path = "../hare-data-plane-client", features = ["sqlite"] }
+hare-data-plane-client = { path = "../hare-data-plane-client", default-features = false, optional = true }
 tokio = { workspace = true, features = [ "rt-multi-thread" ] }
 tonic = { workspace = true }
 tower-http = { workspace = true, features = ["request-id"] }

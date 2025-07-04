@@ -1,7 +1,7 @@
 use hare_control_plane_model::server::HareControlPlaneServer;
 use hare_control_plane_service::service::HareControlPlaneService;
-use hare_data_plane_client::{sqlite::HareDataPlaneSqlite, HareDataPlaneClient};
-use tracing::{debug, error, info};
+use hare_data_plane_client::HareDataPlaneClient;
+use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 fn configure_logging() {
@@ -19,13 +19,6 @@ fn get_socket_address() -> Result<std::net::SocketAddr, std::net::AddrParseError
     std::env::args().skip(1).take(1).next().unwrap_or("127.0.0.1:5001".to_string()).as_str().parse()
 }
 
-async fn get_data_plane_client() -> Result<HareDataPlaneSqlite, Box<dyn std::error::Error>> {
-    let data_plane_client_url = std::env::var("DATABASE_URL")?;
-    let data_plane_client = HareDataPlaneSqlite::try_from_url(data_plane_client_url.as_str()).await?;
-    debug!("Connected to database at URL: {}", &data_plane_client_url);
-    Ok(data_plane_client)
-}
-
 #[tokio::main]
 async fn main() -> Result<(), tonic::transport::Error> {
     configure_logging();
@@ -35,7 +28,12 @@ async fn main() -> Result<(), tonic::transport::Error> {
         std::process::exit(1);
     });
 
-    let data_plane_client = get_data_plane_client().await.unwrap_or_else(|err| {
+    #[cfg(feature = "postgres")]
+    let data_plane_client = hare_data_plane_client::postgres::HareDataPlanePostgres::try_from_env().await;
+    #[cfg(feature = "sqlite")]
+    let data_plane_client = hare_data_plane_client::sqlite::HareDataPlaneSqlite::try_from_env().await;
+
+    let data_plane_client = data_plane_client.unwrap_or_else(|err| {
         error!(%err, "Failed to create data plane client");
         std::process::exit(1);
     });
@@ -44,7 +42,7 @@ async fn main() -> Result<(), tonic::transport::Error> {
         std::process::exit(1);
     });
 
-    let hare_control_plane = HareControlPlaneService::<HareDataPlaneSqlite>::new(data_plane_client);
+    let hare_control_plane = HareControlPlaneService::new(data_plane_client);
     info!("Listening on {}", address.to_string());
     tonic::transport::Server::builder()
         // Must come before SetRequestId middleware to ensure clients cannot inject request IDs
