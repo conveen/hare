@@ -1,0 +1,20 @@
+[package]
+name = "hare-web-server"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["sqlite"]
+postgres = ["hare-data-plane-client/postgres"]
+sqlite = ["hare-data-plane-client/sqlite"]
+
+[dependencies]
+axum = { workspace = true, features = [ "query", "http1", "http2", "tokio" ] }
+hare-common-utils = { path = "../hare-common-utils" }
+hare-data-plane-client = { path = "../hare-data-plane-client", default-features = false, optional = true }
+serde = { workspace = true }
+tokio = { workspace = true, features = [ "rt-multi-thread" ] }
+tower-http = { workspace = true, features = ["request-id"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = [ "env-filter" ] }
+url = { workspace = true }

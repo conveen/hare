@@ -280,7 +280,7 @@ run-run-postgres() {
 
 run-run-web() {
     info "Running web server"
-    cargo run -p hare-web-server 0.0.0.0:8001
+    cargo run -p hare-web-server "${@}" 0.0.0.0:8001
 }
 
 run-shell() {
