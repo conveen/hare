@@ -65,6 +65,11 @@ CMD ["build"]
 
 FROM build AS release_build
 
+# Which database backend to use
+ARG HARE_BACKEND
+# Which component to build image for
+ARG HARE_COMPONENT
+
 # Create dedicated run-as user
 RUN adduser \
     --disabled-password \
@@ -79,26 +84,19 @@ WORKDIR /build
 
 COPY ./proto ./proto
 COPY ./src ./src
+COPY ./.cargo ./.cargo
 COPY Cargo.lock .
 COPY Cargo.toml .
 
 RUN chown -R $USERNAME:$USERNAME /build
-# Create the database file
-RUN sudo -Hiu $USERNAME bash -c 'cd /build && DATABASE_URL=sqlite:///build/hare.db \$HOME/.cargo/bin/cargo sqlx database setup --source src/hare-data-plane-client/migrations/ --sqlite-create-db-wal false'
-# Compile the control plane server
-RUN sudo -Hiu $USERNAME bash -c 'cd /build && DATABASE_URL=sqlite:///build/hare.db \$HOME/.cargo/bin/cargo build --profile release-fat-lto --target x86_64-unknown-linux-musl -p hare-control-plane-server'
-# Compile the web server
-RUN sudo -Hiu $USERNAME bash -c 'cd /build && DATABASE_URL=sqlite:///build/hare.db \$HOME/.cargo/bin/cargo build --profile release-fat-lto --target x86_64-unknown-linux-musl -p hare-web-server'
-# Create app directory with server and database file owned by run-as user
-RUN mkdir app
-RUN cp /build/target/x86_64-unknown-linux-musl/release-fat-lto/hare-control-plane-server app/hare-control-plane-server
-RUN cp /build/target/x86_64-unknown-linux-musl/release-fat-lto/hare-web-server app/hare-web-server
-RUN chmod 555 app/hare-*-server
-RUN cp /build/hare.db app/hare.db
-RUN chmod 644 app/hare.db
+COPY build-support/docker/build-release.sh /build-support/docker/build-release.sh
+RUN HARE_BACKEND=$HARE_BACKEND \
+    HARE_COMPONENT=$HARE_COMPONENT \
+    USERNAME=$USERNAME \
+    /build-support/docker/build-release.sh
 RUN chown -R $USERNAME:$USERNAME app/
 
-FROM scratch AS release
+FROM alpine:latest AS release
 
 COPY --from=release_build /etc/passwd /etc/passwd
 COPY --from=release_build /etc/group /etc/group
@@ -108,6 +106,4 @@ COPY --from=release_build --chown=hare:hare /build/app/ /app/
 WORKDIR /app
 
 USER hare:hare
-
-ENV DATABASE_URL="/app/hare.db"
 ENV RUST_LOG=debug,h2=info,sqlx=info

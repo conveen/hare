@@ -76,12 +76,22 @@ run-in-container() {
 }
 
 run-build-release() {
+    local BACKEND=${BACKEND:-sqlite}
+    local COMPONENT=${COMPONENT:-server}
+    local TAG
+    if [ ${COMPONENT} = "server" ]
+    then
+        TAG="${RELEASE_IMAGE_URL}/${COMPONENT}/${BACKEND}:${RELEASE_IMAGE_TAG}"
+    else
+        TAG="${RELEASE_IMAGE_URL}/${COMPONENT}:${RELEASE_IMAGE_TAG}"
+    fi
     ${CONTAINER_RUNTIME} build \
         --target "${RELEASE_TARGET_STAGE}" \
-        -t "${RELEASE_IMAGE_URL}:${RELEASE_IMAGE_TAG}" \
+        -t "${TAG}" \
         -f build-support/docker/Dockerfile \
-        --build-arg DATABASE_URL="sqlite:///build/hare.db" \
         --build-arg DOCKER_GID="${DOCKER_GID}" \
+        --build-arg HARE_BACKEND="${BACKEND}" \
+        --build-arg HARE_COMPONENT="${COMPONENT}" \
         --build-arg RUST_VERSION="${DEFAULT_RUST_VERSION}" \
         --build-arg UID="${USERID}" \
         --build-arg USERNAME="${USERNAME}" \
@@ -275,7 +285,7 @@ run-run-postgres() {
         -d \
         -e POSTGRES_DB=hare \
         -e POSTGRES_PASSWORD=postgres \
-        postgres:17
+        postgres:17-alpine
 }
 
 run-run-web() {
@@ -360,7 +370,7 @@ print-usage() {
     echo "subcommands:"
     echo "build             cross-build: compile package (default subcommand)"
     echo "build-base        build the build container image"
-    echo "build-release     build app container with compiled control plane and web servers"
+    echo "build-release     build release containers for Hare components"
     echo "check             cross-check: check package for errors"
     echo "check-deps        cargo-deny: check dependencies for license compliance, security notices, and trusted sources"
     echo "clean             cargo-clean: remove Cargo build artifacts"
@@ -424,7 +434,9 @@ if ( \
     || [ "${COMMAND}" = "build-release" ] \
     || [ "${COMMAND}" = "push-base" ] \
     || [ "${COMMAND}" = "run-ddb" ] \
-    || [ "${COMMAND}" = "kill-ddb" ]
+    || [ "${COMMAND}" = "run-postgres" ] \
+    || [ "${COMMAND}" = "kill-ddb" ] \
+    || [ "${COMMAND}" = "kill-postgres" ]
 )
 then
     RUNTIME_CONTEXT="local"

@@ -35,6 +35,7 @@ for RUST_PLATFORM in \
     i686-pc-windows-gnu \
     x86_64-pc-windows-gnu \
     x86_64-unknown-linux-gnu \
+    aarch64-unknown-linux-musl \
     x86_64-unknown-linux-musl
 do
     info "Installing sources for common platform: ${RUST_PLATFORM}"
