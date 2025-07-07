@@ -1,0 +1,68 @@
+networks:
+  hare-network:
+    driver: bridge
+  
+volumes:
+  hare_postgres_data:
+    driver: local
+
+services:
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: hare-postgres
+    environment:
+      POSTGRES_DB: hare
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD:
+    volumes:
+      - hare_postgres_data:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
+    networks:
+      - hare-network
+    restart: unless-stopped
+
+  control-plane:
+    image: ghcr.io/conveen/hare/server/postgres:release
+    container_name: hare-control-plane
+    environment:
+      DATABASE_URL: "http://postgres:${POSTGRES_PASSWORD}@postgres/hare"
+      RUST_LOG:
+    entrypoint: "/app/hare-control-plane-server"
+    command: "0.0.0.0:5001"
+    ports:
+      - 5001:5001
+    networks:
+      - hare-network
+    restart: unless-stopped
+    depends_on:
+      - postgres
+
+  web:
+    image: ghcr.io/conveen/hare/server/postgres:release
+    container_name: hare-web
+    environment:
+      DATABASE_URL: "http://postgres:${POSTGRES_PASSWORD}@hare-postgres/hare"
+      RUST_LOG:
+    entrypoint: "/app/hare-web-server"
+    command: "0.0.0.0:8001"
+    ports:
+      - 8001:8001
+    networks:
+      - hare-network
+    restart: unless-stopped
+    depends_on:
+      - postgres
+
+  cli:
+    image: ghcr.io/conveen/hare/cli:release
+    container_name: hare-cli
+    environment:
+      HARE_ENDPOINT: "http://control-plane:5001"
+      RUST_LOG:
+    entrypoint: "/app/hare-cli"
+    networks:
+      - hare-network
+    depends_on:
+      - control-plane
