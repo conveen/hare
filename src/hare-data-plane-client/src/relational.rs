@@ -146,7 +146,6 @@ where
             return Self::try_from_url(database_url).await;
         }
 
-
         let driver = std::env::var("DATABASE_DRIVER")?;
         let user = std::env::var("DATABASE_USER")?;
         let password = std::env::var("DATABASE_PASSWORD")?;
