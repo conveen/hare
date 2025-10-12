@@ -24,10 +24,10 @@ services:
     restart: unless-stopped
 
   control-plane:
-    image: ghcr.io/conveen/hare/server/postgres:release
+    image: ghcr.io/conveen/hare/server/postgres/${ARCH}:release
     container_name: hare-control-plane
     environment:
-      DATABASE_URL: "http://postgres:${POSTGRES_PASSWORD}@postgres/hare"
+      DATABASE_URL: "postgresql://postgres:${POSTGRES_PASSWORD}@postgres/hare"
       RUST_LOG:
     entrypoint: "/app/hare-control-plane-server"
     command: "0.0.0.0:5001"
@@ -40,10 +40,10 @@ services:
       - postgres
 
   web:
-    image: ghcr.io/conveen/hare/server/postgres:release
+    image: ghcr.io/conveen/hare/server/postgres/${ARCH}:release
     container_name: hare-web
     environment:
-      DATABASE_URL: "http://postgres:${POSTGRES_PASSWORD}@hare-postgres/hare"
+      DATABASE_URL: "postgresql://postgres:${POSTGRES_PASSWORD}@hare-postgres/hare"
       RUST_LOG:
     entrypoint: "/app/hare-web-server"
     command: "0.0.0.0:8001"
