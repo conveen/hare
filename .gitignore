@@ -36,3 +36,6 @@
 
 # Rust build artifacts
 **/target
+
+# CDK output artifacts
+deploy/cdk/cdk.out
