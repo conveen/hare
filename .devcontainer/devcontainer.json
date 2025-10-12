@@ -1,0 +1,13 @@
+{
+	"name": "Build Container",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "rust-lang.rust-analyzer"
+            ]
+        }
+    },
+    "image": "ghcr.io/conveen/hare:build",
+    "initializeCommand": ["./run.sh", "build-base"],
+	"remoteUser": "dev"
+}
