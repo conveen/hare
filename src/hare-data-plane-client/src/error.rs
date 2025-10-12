@@ -8,6 +8,10 @@ pub enum DataPlaneError {
     #[error(transparent)]
     Base64Decode(#[from] base64::DecodeError),
 
+    /// A database connection environment variable is not set.
+    #[error(transparent)]
+    DatabaseConnection(#[from] std::env::VarError),
+
     /// A precondition is not met.
     #[error("Failed precondition: {message}")]
     FailedPrecondition { message: String },
@@ -48,6 +52,7 @@ impl From<DataPlaneError> for tonic::Status {
         match err {
             DataPlaneError::AlreadyExists { resource_id } => Self::already_exists(resource_id),
             DataPlaneError::Base64Decode(_) => Self::invalid_argument("Invalid continuation token"),
+            DataPlaneError::DatabaseConnection(_) => Self::internal("Internal error"),
             DataPlaneError::FailedPrecondition { message } => Self::failed_precondition(message),
             DataPlaneError::InvalidArgument { message } => Self::invalid_argument(message),
             DataPlaneError::InvalidUrl { message: _ } => Self::invalid_argument("Invalid URL for shortcut"),

@@ -142,8 +142,18 @@ where
     }
 
     pub async fn try_from_env() -> error::DataPlaneResult<Self> {
-        let database_url = std::env::var("DATABASE_URL")
-            .map_err(error::DataPlaneError::from)?;
+        if let Ok(database_url) = std::env::var("DATABASE_URL") {
+            return Self::try_from_url(database_url).await;
+        }
+
+
+        let driver = std::env::var("DATABASE_DRIVER")?;
+        let user = std::env::var("DATABASE_USER")?;
+        let password = std::env::var("DATABASE_PASSWORD")?;
+        let host = std::env::var("DATABASE_HOST")?;
+        let port = std::env::var("DATABASE_PORT")?;
+        let name = std::env::var("DATABASE_NAME")?;
+        let database_url = format!("{}://{}:{}@{}:{}/{}", driver, user, password, host, port, name);
         Self::try_from_url(database_url).await
     }
 
