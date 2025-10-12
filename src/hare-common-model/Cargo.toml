@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 serde = { workspace = true }
 prost = { workspace = true }
-tonic = { workspace = true, features = ["codegen", "prost"] }
+tonic = { workspace = true, features = ["codegen"] }
 
 [build-dependencies]
-tonic-build = { workspace = true }
+tonic-prost-build = { workspace = true }
