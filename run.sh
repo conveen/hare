@@ -66,6 +66,7 @@ run-in-container() {
         -e "DATABASE_URL=${DATABASE_URL}" \
         -e "RUST_BACKTRACE" \
         -e "RUST_LOG" \
+        -v ${HOME}/.aws:/home/${USERNAME}/.aws \
         -v ${HOME}/.cargo/git:/home/${USERNAME}/.cargo/git \
         -v ${HOME}/.cargo/registry:/home/${USERNAME}/.cargo/registry \
         -v /var/run/docker.sock:/var/run/docker.sock \
@@ -76,16 +77,18 @@ run-in-container() {
 }
 
 run-build-release() {
+    local ARCH=${ARCH:-amd64}
     local BACKEND=${BACKEND:-sqlite}
     local COMPONENT=${COMPONENT:-server}
     local TAG
     if [ ${COMPONENT} = "server" ]
     then
-        TAG="${RELEASE_IMAGE_URL}/${COMPONENT}/${BACKEND}:${RELEASE_IMAGE_TAG}"
+        TAG="${RELEASE_IMAGE_URL}/${COMPONENT}/${BACKEND}/${ARCH}:${RELEASE_IMAGE_TAG}"
     else
-        TAG="${RELEASE_IMAGE_URL}/${COMPONENT}:${RELEASE_IMAGE_TAG}"
+        TAG="${RELEASE_IMAGE_URL}/${COMPONENT}/${ARCH}:${RELEASE_IMAGE_TAG}"
     fi
-    ${CONTAINER_RUNTIME} build \
+    ${CONTAINER_RUNTIME} buildx build \
+        --platform "linux/${ARCH}" \
         --target "${RELEASE_TARGET_STAGE}" \
         -t "${TAG}" \
         -f build-support/docker/Dockerfile \
@@ -156,6 +159,12 @@ run-build() {
 
     info "Compiling package"
     cargo build "${@}"
+}
+
+run-cdk() {
+    info "Running CDK command"
+    cd deploy/cdk
+    CDK_DISABLE_VERSION_CHECK=1 ${HOME}/.deno/bin/cdk ${@}
 }
 
 run-check() {
@@ -233,14 +242,9 @@ run-init() {
         docs/index.html
 }
 
-run-kill-ddb() {
-    info "Stopping DynamoDB Local"
-    sudo docker ps | grep dynamodb-local | awk '{print $1}' | xargs sudo docker kill 2>/dev/null
-}
-
 run-kill-postgres() {
     info "Stopping Postgres server"
-    sudo docker ps | grep postgres | awk '{print $1}' | xargs sudo docker kill 2>/dev/null
+    docker ps | grep postgres | awk '{print $1}' | xargs docker kill 2>/dev/null
 }
 
 run-lint() {
@@ -266,21 +270,9 @@ run-run-cp() {
     cargo run -p hare-control-plane-server "${@}" 0.0.0.0:5001
 }
 
-run-run-ddb() {
-    info "Running DynamoDB Local"
-    sudo docker run \
-        --rm \
-        -d \
-        -p 127.0.0.1:8000:8000 \
-        amazon/dynamodb-local:latest \
-        -jar DynamoDBLocal.jar \
-        -inMemory \
-        -disableTelemetry
-}
-
 run-run-postgres() {
     info "Running Postgres server"
-    sudo docker run \
+    docker run \
         --rm \
         -d \
         -e POSTGRES_DB=hare \
@@ -299,7 +291,7 @@ run-shell() {
 }
 
 run-test-dp-postgres() {
-    local POSTGRES_SERVER_IP=$(sudo docker ps | grep postgres | awk '{print $1}' | xargs sudo docker inspect | grep '"IPAddress"' | head -n1 | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | tr -d '[[:space:]]')
+    local POSTGRES_SERVER_IP=$(docker ps | grep postgres | awk '{print $1}' | xargs docker inspect | grep '"IPAddress"' | head -n1 | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | tr -d '[[:space:]]')
     if [ -z $POSTGRES_SERVER_IP ]
     then
         error "Postgres server container isn't running"
@@ -377,18 +369,18 @@ print-usage() {
     echo "exec              execute arbitrary shell commands"
     echo "fmt               format code with Rustfmt"
     echo "init              initialize repository (should only be run once)"
-    echo "kill-ddb          kill DynamoDB Local container"
     echo "kill-postgres     kill Postgres container"
     echo "lint              lint code with Clippy"
     echo "make-docs         cargo-doc: compile package documentation"
     echo "publish           publish package to crates.io"
     echo "push-base         push build container image to registry"
     echo "run-cp            run the control plane server on localhost"
-    echo "run-ddb           run DynamoDB Local container on localhost"
     echo "run-postgres      run Postgres server on localhost"
     echo "run-web           run the web server on localhost"
     echo "shell             start Bash shell"
     echo "test              cross-test: run unit, documentation, and integration tests and code coverage"
+    echo "test-dp-postgres  run data plane tests for the Postgres backend"
+    echo "test-dp-sqlite    run data plane tests for the SQLite backend"
     echo "update-deps       cargo-update: update dependencies in Cargo.lock file"
     echo
     echo "optional arguments:"
@@ -433,9 +425,7 @@ if ( \
     [ "${COMMAND}" = "build-base" ] \
     || [ "${COMMAND}" = "build-release" ] \
     || [ "${COMMAND}" = "push-base" ] \
-    || [ "${COMMAND}" = "run-ddb" ] \
     || [ "${COMMAND}" = "run-postgres" ] \
-    || [ "${COMMAND}" = "kill-ddb" ] \
     || [ "${COMMAND}" = "kill-postgres" ]
 )
 then
