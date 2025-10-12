@@ -45,6 +45,7 @@ pub mod tests {
         };
     }
 
+    define_test!(test_check_health_connection_then_ok);
     define_test!(test_add_aliases_for_shortcut_when_add_single_alias_then_exists);
     define_test!(test_add_aliases_for_shortcut_when_add_multiple_distinct_aliases_then_exists);
     define_test!(test_add_aliases_for_shortcut_when_add_multiple_aliases_with_dupes_then_fail);

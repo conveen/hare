@@ -68,11 +68,11 @@ pub(crate) async fn redirect_for_shortcut<'a, D: std::fmt::Debug + HareDataPlane
         let parameters = query.parameters.unwrap_or("");
 
         if let Ok(shortcut) = data_plane_client.get_shortcut_by_alias(alias).await {
-            info!(%request_id, "Resolved alias {} to shortcut with URL {}", alias, shortcut.destination.url);
+            info!("Resolved alias {} to shortcut with URL {}", alias, shortcut.destination.url);
             let parameters: String = url::form_urlencoded::byte_serialize(parameters.as_bytes()).collect();
             return Ok(shortcut.destination.url.replacen("{}", parameters.as_str(), 1));
         } else {
-            info!(%request_id, "No shortcut for alias {}", alias);
+            info!("No shortcut for alias {}", alias);
         }
     }
 
@@ -81,18 +81,18 @@ pub(crate) async fn redirect_for_shortcut<'a, D: std::fmt::Debug + HareDataPlane
         Some(alias) => {
             match data_plane_client.get_shortcut_by_alias(alias).await {
                 Ok(shortcut) => {
-                    info!(%request_id, "Resolved fallback alias {} to shortcut with URL {}", alias, shortcut.destination.url);
+                    info!("Resolved fallback alias {} to shortcut with URL {}", alias, shortcut.destination.url);
                     shortcut
                 },
                 // If fallback alias doesn't resolve, use the default fallback
                 Err(_) => data_plane_client.get_default_fallback_shortcut().await.inspect_err(|err| {
-                    error!(%request_id, %err, "Failed to get default fallback shortcut");
+                    error!(%err, "Failed to get default fallback shortcut");
                 })?,
             }
         },
         // Use the default fallback shortcut
         None => data_plane_client.get_default_fallback_shortcut().await.inspect_err(|err| {
-            error!(%request_id, %err, "Failed to get default fallback shortcut");
+            error!(%err, "Failed to get default fallback shortcut");
         })?,
     };
     let parameters: String =

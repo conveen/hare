@@ -17,6 +17,11 @@ pub async fn test_when_bootstrap_then_ok<D: HareDataPlaneClient + Sync>(client: 
     Ok(())
 }
 
+pub async fn test_check_health_connection_then_ok<D: HareDataPlaneClient + Sync>(client: &D) -> DataPlaneResult<()> {
+    client.check_health().await?;
+    Ok(())
+}
+
 pub async fn test_add_aliases_for_shortcut_when_add_single_alias_then_exists<D: HareDataPlaneClient + Sync>(
     client: &D,
 ) -> DataPlaneResult<()> {

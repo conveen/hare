@@ -35,6 +35,12 @@ pub trait HareDataPlaneClient {
         todo!();
     }
 
+    /// Check the database connection health.
+    #[allow(unused_variables)]
+    async fn check_health(&self) -> error::DataPlaneResult<()> {
+        todo!();
+    }
+
     /// Add one or more aliases to a shortcut.
     ///
     /// # Argument Requirements

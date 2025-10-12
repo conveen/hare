@@ -291,7 +291,8 @@ run-shell() {
 }
 
 run-test-dp-postgres() {
-    local POSTGRES_SERVER_IP=$(docker ps | grep postgres | awk '{print $1}' | xargs docker inspect | grep '"IPAddress"' | head -n1 | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | tr -d '[[:space:]]')
+    # Runs in container so must use sudo for Docker commands
+    local POSTGRES_SERVER_IP=$(sudo docker ps | grep postgres | awk '{print $1}' | xargs sudo docker inspect | grep '"IPAddress"' | head -n1 | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | tr -d '[[:space:]]')
     if [ -z $POSTGRES_SERVER_IP ]
     then
         error "Postgres server container isn't running"

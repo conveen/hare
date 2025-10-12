@@ -386,6 +386,29 @@ where
         Ok(())
     }
 
+    async fn check_health(&self) -> error::DataPlaneResult<()> {
+        let uid = uuid::Uuid::new_v4().to_string();
+        sqlx::query("INSERT INTO health_check (uid, check_field) VALUES ($1, $2)")
+            .bind(uid.as_str())
+            .bind(true)
+            .execute(&self.connection)
+            .await
+            .map_err(error::DataPlaneError::from)
+            .inspect_err(|err| {
+                tracing::error!(check_uid = &uid, %err, "Failed to check health of database");
+            })?;
+        sqlx::query("DELETE FROM health_check WHERE uid = $1")
+            .bind(uid.as_str())
+            .execute(&self.connection)
+            .await
+            .map_err(error::DataPlaneError::from)
+            .inspect_err(|err| {
+                tracing::warn!(check_uid = &uid, %err, "Failed to remove health check record from database");
+            })
+            .ok();
+        Ok(())
+    }
+
     async fn add_aliases_for_shortcut(
         &self,
         uid: &str,
