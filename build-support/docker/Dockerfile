@@ -56,6 +56,9 @@ RUN USERNAME=$USERNAME \
 COPY build-support/docker/install-protobuf-tools.sh /build-support/docker/install-protobuf-tools.sh
 RUN /build-support/docker/install-protobuf-tools.sh
 
+COPY build-support/docker/install-cdk-tools.sh /build-support/docker/install-cdk-tools.sh
+RUN /build-support/docker/install-cdk-tools.sh
+
 
 FROM rust_base AS build
 
@@ -102,6 +105,9 @@ COPY --from=release_build /etc/passwd /etc/passwd
 COPY --from=release_build /etc/group /etc/group
 
 COPY --from=release_build --chown=hare:hare /build/app/ /app/
+
+# Install curl for health checks
+RUN apk add --no-cache curl
 
 WORKDIR /app
 
