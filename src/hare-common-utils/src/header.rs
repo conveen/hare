@@ -7,11 +7,11 @@ use tower_service::Service;
 #[derive(Debug, Clone)]
 pub struct FilterHeaders<S> {
     inner: S,
-    headers: Vec<String>,
+    headers: std::sync::Arc<Vec<String>>,
 }
 
 impl<S> FilterHeaders<S> {
-    pub fn new(inner: S, headers: Vec<String>) -> Self {
+    pub fn new(inner: S, headers: std::sync::Arc<Vec<String>>) -> Self {
         Self { inner, headers }
     }
 }
@@ -46,11 +46,11 @@ where
 /// Applies the [`FilterHeaders`] middleware.
 #[derive(Debug, Clone)]
 pub struct FilterHeadersLayer {
-    headers: Vec<String>,
+    headers: std::sync::Arc<Vec<String>>,
 }
 
 impl FilterHeadersLayer {
-    pub fn new(headers: Vec<String>) -> Self {
+    pub fn new(headers: std::sync::Arc<Vec<String>>) -> Self {
         FilterHeadersLayer { headers }
     }
 }
