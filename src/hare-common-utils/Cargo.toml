@@ -4,8 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+axum = { workspace = true, default-features = false, features = ["http1", "http2", "tokio"] }
+bon = { workspace = true }
 http = { workspace = true }
+tokio = { workspace = true, default-features = false }
 tower-http = { workspace = true, features = ["request-id"] }
 tower-layer = { workspace = true }
 tower-service = { workspace = true }
+tracing = { workspace = true, features = [ "valuable" ] }
 uuid = { workspace = true }
+valuable = { workspace = true, features = [ "derive" ] }
