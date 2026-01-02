@@ -1,10 +1,3 @@
-/// Audit logging middleware using a factory pattern.
-///
-/// This is a redesigned version of the audit logging middleware that uses a simpler,
-/// clearer factory-based approach instead of the trait-based extractor pattern.
-///
-/// The key insight is that the middleware needs to store a factory struct
-/// that can create audit records, not a type parameter for an extractor trait.
 use crate::audit_record::AuditRecord;
 use std::task::{Context, Poll};
 use tower_layer::Layer;
@@ -156,7 +149,7 @@ where
             // Extract response-level audit data and finalize the record
             let audit_record = factory.extract_from_response(&response, builder);
 
-            // Log the audit record using tracing
+            // Log the audit record using tracing with valuable integration
             tracing::info!(record_type = "audit", audit_record = audit_record.as_value());
 
             Ok(response)
@@ -196,29 +189,24 @@ where
     }
 }
 
-/// Maximum number of header values to capture for header-related fields.
+/// Default maximum number of header values to capture for header-related fields.
 /// Prevents header stuffing DoS attacks.
-const MAXIMUM_HEADER_COUNT: usize = 3;
+pub const MAXIMUM_HEADER_COUNT: usize = 3;
 
 /// Maximum header length in bytes before truncating the value.
 /// Prevents header stuffing DoS attacks.
-const MAXIMUM_HEADER_VALUE_LENGTH: usize = 1024;
+pub const MAXIMUM_HEADER_VALUE_LENGTH: usize = 1024;
 
 /// Position of header to extract when multiple headers with the same name exist.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum HeaderPosition {
     /// Extract all header values
+    #[default]
     All,
     /// Extract the first header value
     First,
     /// Extract the last header value
     Last,
-}
-
-impl Default for HeaderPosition {
-    fn default() -> Self {
-        HeaderPosition::All
-    }
 }
 
 fn extract_header_values_with_truncation<'a>(
@@ -253,7 +241,7 @@ pub fn extract_header_values(
     max_count: Option<usize>,
     header_position: Option<HeaderPosition>,
 ) -> (Option<Vec<String>>, bool) {
-    let header_position = header_position.unwrap_or(Default::default());
+    let header_position = header_position.unwrap_or_default();
 
     match header_position {
         HeaderPosition::All => extract_header_values_with_truncation(
@@ -266,18 +254,44 @@ pub fn extract_header_values(
     }
 }
 
+/// Extract request ID from request extensions.
+///
+/// # Panics
+/// Panics if the RequestId extension is not set or is not valid UTF-8.
+pub fn extract_request_id(extensions: &http::Extensions) -> String {
+    extensions
+        .get::<tower_http::request_id::RequestId>()
+        .expect("RequestId must be set")
+        .header_value()
+        .to_str()
+        .expect("RequestId must be valid UTF-8")
+        .to_string()
+}
+
 /// Extract the HTTP response code from a response.
 pub fn extract_http_response_code<T>(response: &http::Response<T>) -> u16 {
     response.status().as_u16()
 }
 
 /// Extract the HTTP response content length from response headers.
+///
+/// # Panics
+/// Panics if the Content-Length header is present but contains a negative value,
+/// is not a valid integer, or overflows u64.
 pub fn extract_http_response_length(headers: &http::HeaderMap) -> u64 {
-    headers
-        .get(http::header::CONTENT_LENGTH)
-        .and_then(|v| v.to_str().ok())
-        .and_then(|s| s.parse::<u64>().ok())
-        .unwrap_or(0)
+    match headers.get(http::header::CONTENT_LENGTH) {
+        Some(header) => {
+            let s = header.to_str().expect("Content-Length must be a non-negative integer");
+
+            // Check for negative sign
+            if s.starts_with('-') {
+                panic!("Content-Length must be a non-negative integer");
+            }
+
+            s.parse::<u64>().expect("Content-Length must be a non-negative integer")
+        },
+        None => 0,
+    }
 }
 
 /// Determine status ID from HTTP response code.
