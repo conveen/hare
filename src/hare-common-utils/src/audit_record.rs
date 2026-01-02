@@ -1,3 +1,33 @@
+use valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value, Visit};
+
+// Static field definitions for Valuable implementation
+static FIELD_ACTOR_PROCESS_PID: NamedField<'static> = NamedField::new("actor_process_pid");
+static FIELD_ACTOR_PROCESS_USER_UID: NamedField<'static> = NamedField::new("actor_process_user_uid");
+static FIELD_ACTOR_USER_ACCOUNT_UID: NamedField<'static> = NamedField::new("actor_user_account_uid");
+static FIELD_ACTOR_USER_NAME: NamedField<'static> = NamedField::new("actor_user_name");
+static FIELD_ACTOR_USER_UID: NamedField<'static> = NamedField::new("actor_user_uid");
+static FIELD_DST_ENDPOINT_IP: NamedField<'static> = NamedField::new("dst_endpoint_ip");
+static FIELD_DST_ENDPOINT_PORT: NamedField<'static> = NamedField::new("dst_endpoint_port");
+static FIELD_DST_ENDPOINT_SOCKET_FILE_PATH: NamedField<'static> = NamedField::new("dst_endpoint_socket_file_path");
+static FIELD_END_TIME: NamedField<'static> = NamedField::new("end_time");
+static FIELD_HTTP_REQUEST_REFERER: NamedField<'static> = NamedField::new("http_request_referer");
+static FIELD_HTTP_REQUEST_UID: NamedField<'static> = NamedField::new("http_request_uid");
+static FIELD_HTTP_REQUEST_URL: NamedField<'static> = NamedField::new("http_request_url");
+static FIELD_HTTP_REQUEST_USER_AGENT: NamedField<'static> = NamedField::new("http_request_user_agent");
+static FIELD_HTTP_REQUEST_X_FORWARDED_FOR: NamedField<'static> = NamedField::new("http_request_x_forwarded_for");
+static FIELD_HTTP_RESPONSE_CODE: NamedField<'static> = NamedField::new("http_response_code");
+static FIELD_HTTP_RESPONSE_LENGTH: NamedField<'static> = NamedField::new("http_response_length");
+static FIELD_METADATA_IS_TRUNCATED: NamedField<'static> = NamedField::new("metadata_is_truncated");
+static FIELD_SRC_ENDPOINT_IP: NamedField<'static> = NamedField::new("src_endpoint_ip");
+static FIELD_SRC_ENDPOINT_PORT: NamedField<'static> = NamedField::new("src_endpoint_port");
+static FIELD_START_TIME: NamedField<'static> = NamedField::new("start_time");
+static FIELD_STATUS_ID: NamedField<'static> = NamedField::new("status_id");
+static FIELD_STATUS_CODE: NamedField<'static> = NamedField::new("status_code");
+static FIELD_STATUS_DETAILS: NamedField<'static> = NamedField::new("status_details");
+static FIELD_TIME: NamedField<'static> = NamedField::new("time");
+static FIELD_TLS_CIPHER: NamedField<'static> = NamedField::new("tls_cipher");
+static FIELD_TLS_VERSION: NamedField<'static> = NamedField::new("tls_version");
+
 /// An audit record of a single request-response from the service.
 ///
 /// A good audit record captures:
@@ -9,7 +39,7 @@
 /// The fields in this record are modelled after the Open Cybersecurity Schema Framework
 /// [Network Activity](https://schema.ocsf.io/1.6.0/classes/network_activity),
 /// an open source normalization framework housed under the Linux Foundation.
-#[derive(bon::Builder, Debug, valuable::Valuable)]
+#[derive(bon::Builder, Debug)]
 #[builder(derive(Debug, Clone), state_mod(vis = "pub"))]
 pub struct AuditRecord {
     /// The PID of the process that initiated the connection.
@@ -84,4 +114,98 @@ pub struct AuditRecord {
     pub tls_cipher: Option<String>,
     /// Version of the negotatied TLS session.
     pub tls_version: Option<String>,
+}
+
+impl Valuable for AuditRecord {
+    fn as_value(&self) -> Value<'_> {
+        Value::Structable(self)
+    }
+
+    fn visit(&self, visitor: &mut dyn Visit) {
+        // Only emit populated optional fields
+        if let Some(ref pid) = self.actor_process_pid {
+            visitor.visit_named_fields(&NamedValues::new(&[FIELD_ACTOR_PROCESS_PID], &[pid.as_value()]));
+        }
+        if let Some(ref uid) = self.actor_process_user_uid {
+            visitor.visit_named_fields(&NamedValues::new(&[FIELD_ACTOR_PROCESS_USER_UID], &[uid.as_value()]));
+        }
+        if let Some(ref uid) = self.actor_user_account_uid {
+            visitor.visit_named_fields(&NamedValues::new(&[FIELD_ACTOR_USER_ACCOUNT_UID], &[uid.as_value()]));
+        }
+        if let Some(ref name) = self.actor_user_name {
+            visitor.visit_named_fields(&NamedValues::new(&[FIELD_ACTOR_USER_NAME], &[name.as_value()]));
+        }
+        if let Some(ref uid) = self.actor_user_uid {
+            visitor.visit_named_fields(&NamedValues::new(&[FIELD_ACTOR_USER_UID], &[uid.as_value()]));
+        }
+        if let Some(ref ip) = self.dst_endpoint_ip {
+            visitor.visit_named_fields(&NamedValues::new(&[FIELD_DST_ENDPOINT_IP], &[ip.as_value()]));
+        }
+        if let Some(ref port) = self.dst_endpoint_port {
+            visitor.visit_named_fields(&NamedValues::new(&[FIELD_DST_ENDPOINT_PORT], &[port.as_value()]));
+        }
+        if let Some(ref path) = self.dst_endpoint_socket_file_path {
+            visitor.visit_named_fields(&NamedValues::new(&[FIELD_DST_ENDPOINT_SOCKET_FILE_PATH], &[path.as_value()]));
+        }
+
+        // Always emit required fields
+        visitor.visit_named_fields(&NamedValues::new(&[FIELD_END_TIME], &[self.end_time.as_value()]));
+
+        if let Some(ref referer) = self.http_request_referer {
+            visitor.visit_named_fields(&NamedValues::new(&[FIELD_HTTP_REQUEST_REFERER], &[referer.as_value()]));
+        }
+        visitor.visit_named_fields(&NamedValues::new(&[FIELD_HTTP_REQUEST_UID], &[self.http_request_uid.as_value()]));
+        visitor.visit_named_fields(&NamedValues::new(&[FIELD_HTTP_REQUEST_URL], &[self.http_request_url.as_value()]));
+
+        if let Some(ref ua) = self.http_request_user_agent {
+            visitor.visit_named_fields(&NamedValues::new(&[FIELD_HTTP_REQUEST_USER_AGENT], &[ua.as_value()]));
+        }
+        if let Some(ref xff) = self.http_request_x_forwarded_for {
+            visitor.visit_named_fields(&NamedValues::new(&[FIELD_HTTP_REQUEST_X_FORWARDED_FOR], &[xff.as_value()]));
+        }
+
+        visitor
+            .visit_named_fields(&NamedValues::new(&[FIELD_HTTP_RESPONSE_CODE], &[self.http_response_code.as_value()]));
+        visitor.visit_named_fields(&NamedValues::new(
+            &[FIELD_HTTP_RESPONSE_LENGTH],
+            &[self.http_response_length.as_value()],
+        ));
+        visitor.visit_named_fields(&NamedValues::new(
+            &[FIELD_METADATA_IS_TRUNCATED],
+            &[self.metadata_is_truncated.as_value()],
+        ));
+
+        if let Some(ref ip) = self.src_endpoint_ip {
+            visitor.visit_named_fields(&NamedValues::new(&[FIELD_SRC_ENDPOINT_IP], &[ip.as_value()]));
+        }
+        if let Some(ref port) = self.src_endpoint_port {
+            visitor.visit_named_fields(&NamedValues::new(&[FIELD_SRC_ENDPOINT_PORT], &[port.as_value()]));
+        }
+
+        visitor.visit_named_fields(&NamedValues::new(&[FIELD_START_TIME], &[self.start_time.as_value()]));
+        visitor.visit_named_fields(&NamedValues::new(&[FIELD_STATUS_ID], &[self.status_id.as_value()]));
+
+        if let Some(ref code) = self.status_code {
+            visitor.visit_named_fields(&NamedValues::new(&[FIELD_STATUS_CODE], &[code.as_value()]));
+        }
+        if let Some(ref details) = self.status_details {
+            visitor.visit_named_fields(&NamedValues::new(&[FIELD_STATUS_DETAILS], &[details.as_value()]));
+        }
+
+        visitor.visit_named_fields(&NamedValues::new(&[FIELD_TIME], &[self.time.as_value()]));
+
+        if let Some(ref cipher) = self.tls_cipher {
+            visitor.visit_named_fields(&NamedValues::new(&[FIELD_TLS_CIPHER], &[cipher.as_value()]));
+        }
+        if let Some(ref version) = self.tls_version {
+            visitor.visit_named_fields(&NamedValues::new(&[FIELD_TLS_VERSION], &[version.as_value()]));
+        }
+    }
+}
+
+impl Structable for AuditRecord {
+    fn definition(&self) -> StructDef<'_> {
+        // Use dynamic definition since we filter fields at runtime
+        StructDef::new_dynamic("AuditRecord", Fields::Named(&[]))
+    }
 }
