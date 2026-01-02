@@ -1,5 +1,12 @@
+#[cfg(feature = "audit_log")]
 pub mod audit_log;
+#[cfg(feature = "audit_log")]
+pub mod audit_log_test_harness;
+#[cfg(feature = "audit_log")]
 pub mod audit_record;
+#[cfg(feature = "audit_log")]
 pub mod connect_info;
+#[cfg(feature = "header")]
 pub mod header;
+#[cfg(feature = "request_id")]
 pub mod request_id;
