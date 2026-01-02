@@ -46,9 +46,9 @@ async fn main() -> Result<(), tonic::transport::Error> {
     info!("Listening on {}", address.to_string());
     tonic::transport::Server::builder()
         // Must come before SetRequestId middleware to ensure clients cannot inject request IDs
-        .layer(hare_common_utils::header::FilterHeadersLayer::new(vec![
+        .layer(hare_common_utils::header::FilterHeadersLayer::new(std::sync::Arc::new(vec![
             hare_common_utils::request_id::REQUEST_ID_HEADER_NAME.to_string(),
-        ]))
+        ])))
         // Assign request ID to each request
         .layer(tower_http::request_id::SetRequestIdLayer::new(
             hare_common_utils::request_id::REQUEST_ID_HEADER_NAME.parse().unwrap(),
@@ -58,6 +58,10 @@ async fn main() -> Result<(), tonic::transport::Error> {
         .layer(tower_http::request_id::PropagateRequestIdLayer::new(
             hare_common_utils::request_id::REQUEST_ID_HEADER_NAME.parse().unwrap(),
         ))
+        // Generate audit records for each request-reply pair
+        .layer(hare_common_utils::audit_log::LogAuditRecordsLayer::new(std::sync::Arc::new(
+            hare_control_plane_server::audit_log::ControlPlaneAuditRecordFactory {},
+        )))
         .add_service(HareControlPlaneServer::new(hare_control_plane))
         .serve(address)
         .await
