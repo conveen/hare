@@ -62,23 +62,11 @@ impl audit_log::AuditRecordFactory for WebAuditRecordFactory {
             // Assumes the last proxy is trusted to set the XFF, if not using a proxy change to HeaderPosition::All
             audit_log::extract_header_values(request_headers, http::header::FORWARDED, None, Some(audit_log::HeaderPosition::Last));
 
-        // Extract request ID from extensions (set by SetRequestIdLayer)
-        let http_request_uid = request
-            .extensions()
-            .get::<tower_http::request_id::RequestId>()
-            .expect("RequestId must be set")
-            .header_value()
-            .to_str()
-            .expect("RequestId must be valid UTF-8")
-            .to_string();
-
-        // Extract client and server connection information
         let connect_info = request
             .extensions()
             .get::<axum::extract::ConnectInfo<connect_info::ConnectionInformation>>()
             .expect("ConnectInfo extension must be present");
 
-        // Calculate request start timestamp
         let timestamp = chrono::DateTime::<chrono::Utc>::from(start_time).format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
 
         AuditRecord::builder()
@@ -91,7 +79,7 @@ impl audit_log::AuditRecordFactory for WebAuditRecordFactory {
             .maybe_http_request_referer(http_request_referer)
             .maybe_http_request_user_agent(http_request_user_agent)
             .maybe_http_request_x_forwarded_for(http_request_x_forwarded_for)
-            .http_request_uid(http_request_uid)
+            .http_request_uid(audit_log::extract_request_id(request.extensions()))
             .metadata_is_truncated(referer_truncated || ua_truncated || forwarded_truncated)
             .maybe_src_endpoint_ip(connect_info.src_endpoint_ip.clone())
             .maybe_src_endpoint_port(connect_info.src_endpoint_port)

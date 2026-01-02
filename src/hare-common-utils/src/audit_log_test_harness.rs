@@ -40,12 +40,8 @@ pub trait AuditFactoryTestHarness {
 
     /// Build a request with Unix socket connection info and required extensions.
     #[cfg(unix)]
-    fn build_uds_request_with_request_id(
-        uri: &str,
-        pid: i32,
-        uid: u32,
-        socket_path: &str,
-    ) -> http::Request<Self::Body>;
+    fn build_uds_request_with_request_id(uri: &str, pid: i32, uid: u32, socket_path: &str)
+        -> http::Request<Self::Body>;
 }
 
 // ============================================================================
