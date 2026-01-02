@@ -340,17 +340,6 @@ where
             "SELECT destination_uid, NULL as \"uid?: String\", name FROM alias WHERE destination_uid IN ('{}') ORDER BY destination_uid",
             destinations.iter().map(|destination| destination.uid.as_str()).collect::<Vec<_>>().join("','"),
         );
-        dbg!(&query);
-        // let mut query_builder = sqlx::query_builder::QueryBuilder::new(
-        //     "SELECT destination_uid, NULL as \"uid?: String\", name FROM alias WHERE destination_uid IN (",
-        // );
-        // let mut filter_builder = query_builder.separated(",");
-        // destinations.iter().for_each(|destination| {
-        //     filter_builder.push_bind(destination.uid.as_str());
-        // });
-        // filter_builder.push_unseparated(") ORDER BY destination_uid");
-        // let query = query_builder.sql();
-
         sqlx::query(&query)
             .fetch_all(&self.connection)
             .await
