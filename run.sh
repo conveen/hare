@@ -66,6 +66,7 @@ run-in-container() {
         -e "DATABASE_URL=${DATABASE_URL}" \
         -e "RUST_BACKTRACE" \
         -e "RUST_LOG" \
+        -e "RUSTFLAGS" \
         -v ${HOME}/.aws:/home/${USERNAME}/.aws \
         -v ${HOME}/.cargo/git:/home/${USERNAME}/.cargo/git \
         -v ${HOME}/.cargo/registry:/home/${USERNAME}/.cargo/registry \
@@ -313,7 +314,7 @@ run-test-dp-sqlite() {
 run-test() {
     local TEST_ARGS="$(remove-profile-flags ${@})"
     export CARGO_INCREMENTAL=0 
-    export RUSTFLAGS="-Cinstrument-coverage"
+    export RUSTFLAGS="$RUSTFLAGS -Cinstrument-coverage"
 
     local TARGET_PLATFORM="$(echo ${@} | grep -o '\-\-target [^ ]\+' | sed 's/--target//g' | tr -d '[:space:]')"
     if [ -z "${TARGET_PLATFORM}" ]

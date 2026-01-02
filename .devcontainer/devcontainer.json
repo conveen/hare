@@ -7,6 +7,9 @@
             ]
         }
     },
+    "containerEnv": {
+        "RUSTFLAGGS": "--cfg tracing_unstable"
+    },
     "image": "ghcr.io/conveen/hare:build",
     "initializeCommand": ["./run.sh", "build-base"],
 	"remoteUser": "dev"
