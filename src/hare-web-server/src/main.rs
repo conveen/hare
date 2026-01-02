@@ -45,23 +45,23 @@ async fn main() -> Result<(), std::io::Error> {
     axum::serve(
         listener,
         hare_web_server::app::create_app(data_plane_client)
-            // Must come before SetRequestId middleware to ensure clients cannot inject request IDs
-            .layer(hare_common_utils::header::FilterHeadersLayer::new(std::sync::Arc::new(vec![
-                hare_common_utils::request_id::REQUEST_ID_HEADER_NAME.to_string(),
-            ])))
+            // Generate audit records for each request-reply pair
+            .layer(hare_common_utils::audit_log::LogAuditRecordsLayer::new(std::sync::Arc::new(
+                hare_web_server::audit_log::WebAuditRecordFactory {},
+            )))
+            // Propagate request ID header to response
+            .layer(tower_http::request_id::PropagateRequestIdLayer::new(
+                hare_common_utils::request_id::REQUEST_ID_HEADER_NAME.parse().unwrap(),
+            ))
             // Assign request ID to each request
             .layer(tower_http::request_id::SetRequestIdLayer::new(
                 hare_common_utils::request_id::REQUEST_ID_HEADER_NAME.parse().unwrap(),
                 hare_common_utils::request_id::RequestIdGenerator::default(),
             ))
-            // Propagate request ID header to response
-            .layer(tower_http::request_id::PropagateRequestIdLayer::new(
-                hare_common_utils::request_id::REQUEST_ID_HEADER_NAME.parse().unwrap(),
-            ))
-            // Generate audit records for each request-reply pair
-            .layer(hare_common_utils::audit_log::LogAuditRecordsLayer::new(std::sync::Arc::new(
-                hare_web_server::audit_log::WebAuditRecordFactory {},
-            )))
+            // Must come before SetRequestId middleware to ensure clients cannot inject request IDs
+            .layer(hare_common_utils::header::FilterHeadersLayer::new(std::sync::Arc::new(vec![
+                hare_common_utils::request_id::REQUEST_ID_HEADER_NAME.to_string(),
+            ])))
             .into_make_service_with_connect_info::<hare_common_utils::connect_info::ConnectionInformation>(),
     )
     .await
