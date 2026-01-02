@@ -757,8 +757,10 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "bon",
+ "chrono",
  "http",
  "tokio",
+ "tonic",
  "tower-http",
  "tower-layer",
  "tower-service",
@@ -783,10 +785,12 @@ dependencies = [
 name = "hare-control-plane-server"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "hare-common-utils",
  "hare-control-plane-model",
  "hare-control-plane-service",
  "hare-data-plane-client",
+ "http",
  "tokio",
  "tonic",
  "tower-http",

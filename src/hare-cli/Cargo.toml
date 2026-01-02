@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 clap = { workspace = true, features = [ "derive", "env" ] }
 hare-common-model = { path = "../hare-common-model" }
-hare-common-utils = { path = "../hare-common-utils" }
+hare-common-utils = { path = "../hare-common-utils", features = ["request_id"] }
 hare-control-plane-model = { path = "../hare-control-plane-model" }
 serde_json = { workspace = true }
 tokio = { workspace = true, features = [ "rt-multi-thread" ] }
