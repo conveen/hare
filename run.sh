@@ -153,7 +153,7 @@ run-build() {
 
     # run-check-deps
 
-    run-test ${CHECK_TEST_ARGS}
+    run-test-coverage
 
     # Clean compilation directory after compiling for tests
     run-clean ${CHECK_TEST_ARGS}
@@ -291,7 +291,7 @@ run-shell() {
     bash
 }
 
-run-test-dp-postgres() {
+test-dp-postgres() {
     # Runs in container so must use sudo for Docker commands
     local POSTGRES_SERVER_IP=$(sudo docker ps | grep postgres | awk '{print $1}' | xargs sudo docker inspect | grep '"IPAddress"' | head -n1 | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | tr -d '[[:space:]]')
     if [ -z $POSTGRES_SERVER_IP ]
@@ -305,47 +305,62 @@ run-test-dp-postgres() {
     cargo test -p hare-data-plane-client --no-default-features --features postgres
 }
 
-run-test-dp-sqlite() {
+test-dp-sqlite() {
     info "Running data plane tests for SQLite"
     export DATABASE_URL="sqlite:///project/src/hare-data-plane-client/hare.db"
     cargo test -p hare-data-plane-client --no-default-features --features sqlite
 }
 
 run-test() {
-    local TEST_ARGS="$(remove-profile-flags ${@})"
-    export CARGO_INCREMENTAL=0 
-    export RUSTFLAGS="$RUSTFLAGS -Cinstrument-coverage"
-
-    local TARGET_PLATFORM="$(echo ${@} | grep -o '\-\-target [^ ]\+' | sed 's/--target//g' | tr -d '[:space:]')"
-    if [ -z "${TARGET_PLATFORM}" ]
+    local COMPONENT="${1}"
+    if [ ! -z "${COMPONENT}" ]
     then
-        TARGET_ROOT_DIRECTORY="./target/debug"
-    else
-        TARGET_ROOT_DIRECTORY="./target/${TARGET_PLATFORM}"
+        shift
     fi
-    export LLVM_PROFILE_FILE="${TARGET_ROOT_DIRECTORY}/coverage/hare-%p-%m.profraw"
 
-    # See https://github.com/mozilla/grcov?tab=readme-ov-file#example-how-to-generate-source-based-coverage-for-a-rust-project
-    # for documentation on generating source-based coverage for a Rust project
-    info "Compiling package with coverage information"
-    cargo build ${TEST_ARGS}
-    
-    run-test-dp-sqlite
-    run-test-dp-postgres
+    if [ "${COMPONENT}" = "cli" ]
+    then
+        info "Running unit and integration tests for the CLI"
+        cargo test -p hare-cli "${@}"
+    elif [ "${COMPONENT}" = "cp" ]
+    then
+        info "Running unit and integration tests for the control plane"
+        cargo test -p hare-control-plane-server "${@}"
+    elif [ "${COMPONENT}" = "dp-postgres" ]
+    then
+        test-dp-postgres "${@}"
+    elif [ "${COMPONENT}" = "dp-sqlite" ]
+    then
+        test-dp-sqlite "${@}"
+    elif [ "${COMPONENT}" = "web" ]
+    then
+        info "Running unit and integration tests for the web server"
+        cargo test -p hare-web-server "${@}"
+    elif [ "${COMPONENT}" = "utils" ]
+    then
+        info "Running unit and integration tests for the utils package"
+        cargo test -p hare-common-utils --all-features "${@}"
+    else
+        info "Running unit and integration tests for all testable non-data plane packages"
+        cargo test --workspace --exclude hare-common-model --exclude hare-control-plane-model --exclude hare-data-plane-client --all-features "${@}"
+    fi
+}
 
-    info "Running non-data plane tests"
-    cargo test --workspace --exclude hare-data-plane-client "${@}"
+run-test-coverage() {
+    local POSTGRES_SERVER_IP=$(sudo docker ps | grep postgres | awk '{print $1}' | xargs sudo docker inspect | grep '"IPAddress"' | head -n1 | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | tr -d '[[:space:]]')
+    if [ -z $POSTGRES_SERVER_IP ]
+    then
+        error "Postgres server container isn't running"
+        exit 1
+    fi
 
-    # TODO: Fix coverage report to reflect actual test coverage
-    # info "Generating coverage report with grcov"
-    # grcov "${TARGET_ROOT_DIRECTORY}/coverage/" -s . --binary-path "${TARGET_ROOT_DIRECTORY}/" -t html --branch --ignore-not-existing -o "${TARGET_ROOT_DIRECTORY}/coverage/"
-    # rm -rf ${TARGET_ROOT_DIRECTORY}/coverage/*.profraw
-
-    unset CARGO_INCREMENTAL
-    unset LLVM_PROFILE_FILE
-    unset RUSTC_BOOTSTRAP
-    unset RUSTDOCFLAGS
-    unset RUSTFLAGS
+    cargo llvm-cov --html --output-dir ./target/llvm-cov/hare-common-utils --package hare-common-utils --all-features --no-cfg-coverage
+    cargo llvm-cov --html --output-dir ./target/llvm-cov/hare-control-plane-server --package hare-control-plane-server --no-cfg-coverage
+    cargo llvm-cov --html --output-dir ./target/llvm-cov/hare-web-server --package hare-web-server --no-cfg-coverage
+    cargo llvm-cov --html --output-dir ./target/llvm-cov/hare-data-plane-client/sqlite --package hare-data-plane-client --no-default-features --features sqlite --no-cfg-coverage
+    export DATABASE_URL="postgres://postgres:postgres@${POSTGRES_SERVER_IP}/hare"
+    cargo llvm-cov --html --output-dir ./target/llvm-cov/hare-data-plane-client/postgres --package hare-data-plane-client --no-default-features --features postgres --no-cfg-coverage
+    rm -f src/**/*.profraw
 }
 
 run-update-deps() {
@@ -380,9 +395,8 @@ print-usage() {
     echo "run-postgres      run Postgres server on localhost"
     echo "run-web           run the web server on localhost"
     echo "shell             start Bash shell"
-    echo "test              cross-test: run unit, documentation, and integration tests and code coverage"
-    echo "test-dp-postgres  run data plane tests for the Postgres backend"
-    echo "test-dp-sqlite    run data plane tests for the SQLite backend"
+    echo "test              cargo-test: run unit, documentation, and integration tests"
+    echo "test-coverage     cargo-llvm-cov: run code coverage for all packages with tests"
     echo "update-deps       cargo-update: update dependencies in Cargo.lock file"
     echo
     echo "optional arguments:"

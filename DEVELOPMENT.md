@@ -21,7 +21,7 @@ The build container, defined in [build-support/docker/Dockerfile](build-support/
 It includes a `minimal` installation of [Rustup and Rust](https://www.rust-lang.org/tools/install),
 as well as [Cross](https://github.com/cross-rs/cross) for cross-compilation,
 [cargo-deny](https://docs.rs/cargo-deny/latest/cargo_deny/) for dependency linting,
-and [grcov](https://github.com/mozilla/grcov) for coverage report generation.
+and [llvm-cov](https://github.com/taiki-e/cargo-llvm-cov) for coverage report generation.
 The repository files are mounted into the container before each command is run, so the container is not rebuilt after any source files are changed.
 To add tools or make other changes to the build container, edit the `build` or any preceding stage in the [Dockerfile](build-support/docker/Dockerfile)
 and rebuild it.
@@ -96,7 +96,8 @@ The table below contains all the built-in commands, their usage, and a brief des
 | run-postgres     | `./run.sh run-postgres`      | Run a Postgres server on localhost.                                                                                                                                                                          |
 | run-web          | `./run.sh run-web`           | Run the Hare web server on localhost.                                                                                                                                                                        |
 | shell            | `./run.sh shell`             | Sart a Bash shell to run interactive commands.                                                                                                                                                               |
-| test             | `./run.sh test`              | Run unit, integration, and documentation tests with [cargo-test](https://doc.rust-lang.org/cargo/commands/cargo-test.html), and generate coverage report with [grcov](https://github.com/mozilla/grcov).     |
+| test             | `./run.sh test`              | Run unit, integration, and documentation tests with [cargo-test](https://doc.rust-lang.org/cargo/commands/cargo-test.html).     |
+| test-coverage    | `./run.sh test-coverage`     | Run tests and generate coverage reports for all packages with tests using [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov). |
 | test-dp-postgres | `./run.sh test-dp-postgres`  | Run data plane tests for the Postgres backend.                                                                                                                                                               |
 | test-dp-sqlite   | `./run.sh test-dp-sqlite`    | Run data plane tests for the SQLite backend.                                                                                                                                                                 |
 | update-deps      | `./run.sh update-deps`       | Update direct and dev dependencies using [cargo-update](https://doc.rust-lang.org/cargo/commands/cargo-update.html).                                                                                         |
